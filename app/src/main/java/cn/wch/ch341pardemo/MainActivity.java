@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
+import android.content.Intent;
 import android.hardware.usb.UsbDevice;
 import android.os.Bundle;
 import android.os.Handler;
@@ -290,6 +291,11 @@ public class MainActivity extends AppCompatActivity {
                 isDeviceOpen = true;
                 this.usbDevice=usbDevice;
                 sendMessage(OPEN_DEVICE);
+                try {
+                    startService(new Intent(this, TermuxBridge.class));
+                } catch (Exception e) {
+                    LogUtil.d("TermuxBridge start failed: " + e.getMessage());
+                }
             }else {
                 CH341Manager.getInstance().requestPermission(context,usbDevice);//申请权限
             }
@@ -309,6 +315,11 @@ public class MainActivity extends AppCompatActivity {
         isDeviceOpen = false;
         this.usbDevice=null;
         sendMessage(Global.CLOSE_DEVICE);
+        try {
+            stopService(new Intent(this, TermuxBridge.class));
+        } catch (Exception e) {
+            LogUtil.d("TermuxBridge stop failed: " + e.getMessage());
+        }
     }
 
     /***************************************EPP API*********************************************/
