@@ -36,6 +36,10 @@ public class TermuxBridge extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        boolean started = openUsb();
+        if (!started) {
+            Log.e(TAG, "openUsb failed");
+        }
         startForegroundIfNeeded();
         new BridgeThread().start();
         Log.i(TAG, "Bridge started on 127.0.0.1:" + PORT);
@@ -43,10 +47,22 @@ public class TermuxBridge extends Service {
 
     private void startForegroundIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.app.NotificationChannel ch = new android.app.NotificationChannel(
+                    "ch341", "CH341 Bridge", android.app.NotificationManager.IMPORTANCE_LOW);
+            ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+                    .createNotificationChannel(ch);
             startForeground(1, new NotificationCompat.Builder(this, "ch341")
                     .setContentTitle("CH41A→Termux")
                     .setContentText("127.0.0.1:4444")
                     .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                    .setOngoing(true)
+                    .build());
+        } else {
+            startForeground(1, new NotificationCompat.Builder(this)
+                    .setContentTitle("CH41A→Termux")
+                    .setContentText("127.0.0.1:4444")
+                    .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                    .setOngoing(true)
                     .build());
         }
     }
