@@ -32,13 +32,18 @@ public class TermuxBridge extends Service {
     private UsbDeviceConnection conn;
     private UsbInterface intf;
     private UsbEndpoint epIn, epOut;
+    private boolean usbReady = false;
 
     @Override
     public void onCreate() {
         super.onCreate();
         boolean started = openUsb();
         if (!started) {
-            Log.e(TAG, "openUsb failed");
+            Log.e(TAG, "openUsb failed - bridge will not function");
+            // Don't crash, just mark as not ready
+            usbReady = false;
+        } else {
+            usbReady = true;
         }
         startForegroundIfNeeded();
         new BridgeThread().start();
@@ -52,14 +57,14 @@ public class TermuxBridge extends Service {
             ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE))
                     .createNotificationChannel(ch);
             startForeground(1, new NotificationCompat.Builder(this, "ch341")
-                    .setContentTitle("CH41A→Termux")
+                    .setContentTitle("CH341A to Termux")
                     .setContentText("127.0.0.1:4444")
                     .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                     .setOngoing(true)
                     .build());
         } else {
             startForeground(1, new NotificationCompat.Builder(this)
-                    .setContentTitle("CH41A→Termux")
+                    .setContentTitle("CH341A to Termux")
                     .setContentText("127.0.0.1:4444")
                     .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                     .setOngoing(true)
@@ -78,11 +83,19 @@ public class TermuxBridge extends Service {
             }
         }
         if (device == null) {
-            Log.e(TAG, "No CH341 device");
+            Log.e(TAG, "No CH341 device found");
+            return false;
+        }
+        // Check permission before opening
+        if (!mgr.hasPermission(device)) {
+            Log.e(TAG, "No USB permission for device");
             return false;
         }
         conn = mgr.openDevice(device);
-        if (conn == null) return false;
+        if (conn == null) {
+            Log.e(TAG, "Failed to open USB device");
+            return false;
+        }
         for (int i = 0; i < device.getInterfaceCount(); i++) {
             UsbInterface ui = device.getInterface(i);
             if (ui.getInterfaceClass() == 255 || ui.getInterfaceClass() == 2) { // VENDOR_SPEC or CDC
@@ -90,14 +103,23 @@ public class TermuxBridge extends Service {
                 break;
             }
         }
-        if (intf == null) return false;
-        if (!conn.claimInterface(intf, true)) return false;
+        if (intf == null) {
+            Log.e(TAG, "No suitable USB interface found");
+            return false;
+        }
+        if (!conn.claimInterface(intf, true)) {
+            Log.e(TAG, "Failed to claim USB interface (may be in use by another app)");
+            return false;
+        }
         for (int i = 0; i < intf.getEndpointCount(); i++) {
             UsbEndpoint ep = intf.getEndpoint(i);
             if (ep.getDirection() == UsbConstants.USB_DIR_IN) epIn = ep;
             else epOut = ep;
         }
-        if (epIn == null || epOut == null) return false;
+        if (epIn == null || epOut == null) {
+            Log.e(TAG, "Could not find IN/OUT endpoints");
+            return false;
+        }
 
         // CH341 vendor init
         conn.controlTransfer(0x40, 0xA1, 0x0000, 0x0000, null, 0, 1000);
@@ -126,7 +148,7 @@ public class TermuxBridge extends Service {
 
     private void closeAll() {
         try { if (server != null) server.close(); } catch (IOException ignored) {}
-        try { if (conn != null) conn.releaseInterface(intf); } catch (Exception ignored) {}
+        try { if (conn != null && intf != null) conn.releaseInterface(intf); } catch (Exception ignored) {}
         try { if (conn != null) conn.close(); } catch (Exception ignored) {}
     }
 
@@ -155,15 +177,28 @@ public class TermuxBridge extends Service {
         public void run() {
             try {
                 s.setTcpNoDelay(true);
-                s.getOutputStream().write(("\nCH341 TERMUX BRIDGE:\n"
-                        + "VID:PID 0x" + device.getVendorId() + ":0x" + device.getProductId() + "\n"
-                        + "ENDPOINTS IN:" + epIn.getAddress() + " OUT:" + epOut.getAddress() + "\n"
-                        + "READY\n").getBytes());
+                // Safe device info access
+                String vendorId = "unknown";
+                String productId = "unknown";
+                int epInAddr = -1;
+                int epOutAddr = -1;
+                if (usbReady && device != null) {
+                    vendorId = "0x" + Integer.toHexString(device.getVendorId());
+                    productId = "0x" + Integer.toHexString(device.getProductId());
+                    epInAddr = epIn != null ? epIn.getAddress() : -1;
+                    epOutAddr = epOut != null ? epOut.getAddress() : -1;
+                }
+                String welcome = "\nCH341 TERMUX BRIDGE:\n"
+                        + "VID:PID " + vendorId + ":" + productId + "\n"
+                        + "ENDPOINTS IN:" + epInAddr + " OUT:" + epOutAddr + "\n"
+                        + "READY\n";
+                s.getOutputStream().write(welcome.getBytes());
+
                 byte[] buf = new byte[4096];
                 byte[] in = new byte[4096];
-                while (running && !s.isClosed()) {
+                while (running && !s.isClosed() && usbReady) {
                     int r = s.getInputStream().read(buf);
-                    if (r > 0) {
+                    if (r > 0 && conn != null && epOut != null && epIn != null) {
                         int n = conn.bulkTransfer(epOut, buf, r, 5000);
                         if (n > 0) {
                             int m = conn.bulkTransfer(epIn, in, in.length, 100);

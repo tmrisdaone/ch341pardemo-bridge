@@ -1,17 +1,17 @@
 <resources>
     <string name="app_name">CH341PARDemo</string>
-    <string name="open_device">打开设备</string>
-    <string name="close_device">关闭设备</string>
+    <string name="open_device">Open Device</string>
+    <string name="close_device">Close Device</string>
     <string name="read">Read</string>
     <string name="write">Write</string>
 
     <string-array name="spi_work_mode">
-        <item>单输入输出</item>
-        <item>双输入输出</item>
+        <item>Single I/O</item>
+        <item>Dual I/O</item>
     </string-array>
     <string-array name="spi_data_mode">
-    <item>低位优先</item>
-    <item>高位优先</item>
+        <item>LSB First</item>
+        <item>MSB First</item>
     </string-array>
 
     <string-array name="spi_chip_select">
@@ -41,6 +41,5 @@
         <item>ID_24C2048</item>
         <item>ID_24C4096</item>
     </string-array>
-
 
 </resources>

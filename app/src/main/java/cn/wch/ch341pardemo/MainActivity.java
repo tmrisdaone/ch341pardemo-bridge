@@ -53,123 +53,123 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-        initSpinner(binding.streamItem.streamWorkRateSpinner,R.array.work_rate);
-        initSpinner(binding.streamItem.spiWorkModeSpinner,R.array.spi_work_mode);
-        initSpinner(binding.streamItem.spiDataModeSpinner,R.array.spi_data_mode);
-        initSpinner(binding.streamItem.spi.spiChipSelectSpinner,R.array.spi_chip_select);
-        initSpinner(binding.streamItem.eeprom.eepromTypeSpinner,R.array.eeprom_type);
+    initSpinner(binding.streamItem.streamWorkRateSpinner,R.array.work_rate);
+    initSpinner(binding.streamItem.spiWorkModeSpinner,R.array.spi_work_mode);
+    initSpinner(binding.streamItem.spiDataModeSpinner,R.array.spi_data_mode);
+    initSpinner(binding.streamItem.spi.spiChipSelectSpinner,R.array.spi_chip_select);
+    initSpinner(binding.streamItem.eeprom.eepromTypeSpinner,R.array.eeprom_type);
 
     }
 
     private void initVariable() {
-        CH341Manager.getInstance().setUsbStateListener(iUsbStateChange);
-        setBtnEnable(false);
-//        setSPIBtnEnable(false,false);
+    CH341Manager.getInstance().setUsbStateListener(iUsbStateChange);
+    setBtnEnable(false);
+    // setSPIBtnEnable(false,false);  // Disabled
     }
 
     private void setViewClickListener() {
-        //使能设备
-        binding.btnOpen.setOnClickListener(view -> {
-            if(!isDeviceOpen){
-                openDevice();
-            }else {
-                closeDevice();
-            }
-        });
-        //EPP并口数据读
-        binding.eppItem.eppReadDataBtn.setOnClickListener(view -> {
-            handleEppReadData();
+    // Enable device button
+    binding.btnOpen.setOnClickListener(view -> {
+        if(!isDeviceOpen){
+            openDevice();
+        }else {
+            closeDevice();
+        }
+    });
+    // EPP parallel port data read
+    binding.eppItem.eppReadDataBtn.setOnClickListener(view -> {
+        handleEppReadData();
 
-        });
-        //EPP并口数据写
-        binding.eppItem.eppWriteDataBtn.setOnClickListener(view -> {
-            handleEppWriteData();
+    });
+    // EPP parallel port data write
+    binding.eppItem.eppWriteDataBtn.setOnClickListener(view -> {
+        handleEppWriteData();
 
-        });
-        //EPP并口读写数据清空
-        binding.eppItem.eppRwDataClearText.setOnClickListener(view -> {
-            binding.eppItem.eppRwDataEdit.setText("");
-        });
+    });
+    // EPP parallel port read/write data clear
+    binding.eppItem.eppRwDataClearText.setOnClickListener(view -> {
+        binding.eppItem.eppRwDataEdit.setText("");
+    });
 
-        //EPP并口地址读
-        binding.eppItem.eppReadAddrBtn.setOnClickListener(view -> {
-            handleEppReadAddr();
+    // EPP parallel port address read
+    binding.eppItem.eppReadAddrBtn.setOnClickListener(view -> {
+        handleEppReadAddr();
 
-        });
-        //EPP并口地址写
-        binding.eppItem.eppWriteAddrBtn.setOnClickListener(view -> {
-            handleEppWriteAddr();
+    });
+    // EPP parallel port address write
+    binding.eppItem.eppWriteAddrBtn.setOnClickListener(view -> {
+        handleEppWriteAddr();
 
-        });
-        //EPP并口读写数据清空
-        binding.eppItem.eppRwAddrClearText.setOnClickListener(view -> {
-            binding.eppItem.eppRwAddrEdit.setText("");
-        });
-        //MEM并口数据读
-        binding.memItem.memReadDataBtn.setOnClickListener(view -> {
-            handleMemReadData();
+    });
+    // EPP parallel port read/write address clear
+    binding.eppItem.eppRwAddrClearText.setOnClickListener(view -> {
+        binding.eppItem.eppRwAddrEdit.setText("");
+    });
+    // MEM parallel port data read
+    binding.memItem.memReadDataBtn.setOnClickListener(view -> {
+        handleMemReadData();
 
-        });
-        //MEM并口数据写
-        binding.memItem.memWriteDataBtn.setOnClickListener(view -> {
-            handleMemWriteData();
+    });
+    // MEM parallel port data write
+    binding.memItem.memWriteDataBtn.setOnClickListener(view -> {
+        handleMemWriteData();
 
-        });
-        //MEM并口读写数据清空
-        binding.memItem.memRwDataClearText.setOnClickListener(view -> {
-            binding.memItem.memRwDataEdit.setText("");
-        });
-        //两线串口设置
-        binding.streamItem.streamModeConfigBtn.setOnClickListener(view -> {
-            handleStreamConfig();
-        });
-        //SPI读写
-        binding.streamItem.spi.spiRwBtn.setOnClickListener(view -> {
-            handleSPIRW();
-        });
-        //SPI写清空
-        binding.streamItem.spi.spiWriteDataClearText.setOnClickListener(view -> {
-            binding.streamItem.spi.spiWriteDataEdit.setText("");
-        });
-        //SPI读清空
-        binding.streamItem.spi.spiReadDataClearText.setOnClickListener(view -> {
-            binding.streamItem.spi.spiReadDataEdit.setText("");
-        });
-        //I2C读写
-        binding.streamItem.i2c.i2cRwBtn.setOnClickListener(view -> {
-            handleI2CRW();
-        });
-        //I2C读清空
-        binding.streamItem.i2c.i2cReadDataClearText.setOnClickListener(view -> {
-            binding.streamItem.i2c.i2cReadDataEdit.setText("");
-        });
-        //I2C写清空
-        binding.streamItem.i2c.i2cWriteDataClearText.setOnClickListener(view -> {
-            binding.streamItem.i2c.i2cWriteDataEdit.setText("");
-        });
-        //EEPROM写
-        binding.streamItem.eeprom.eepromWriteBtn.setOnClickListener(view -> {
-            handelEEPROMWrite();
-        });
-        //EEPROM读
-        binding.streamItem.eeprom.eepromReadBtn.setOnClickListener(view -> {
-            handelEEPROMRead();
-        });
-        //EEPROM 读数据清空
-        binding.streamItem.eeprom.eepromReadDataClearText.setOnClickListener(view -> {
-            binding.streamItem.eeprom.eepromReadDataEdit.setText("");
-        });
-        //EEPROM 写清空
-        binding.streamItem.eeprom.eepromWriteDataClearText.setOnClickListener(view -> {
-            binding.streamItem.eeprom.eepromWriteDataEdit.setText("");
-        });
-        //读取GPIO
-        binding.gpioItem.readGpioBtn.setOnClickListener(view -> {
-            handelReadGpio();
-        });
-        binding.gpioItem.setGpioBtn.setOnClickListener(view -> {
-            handleSetGpio();
-        });
+    });
+    // MEM parallel port read/write data clear
+    binding.memItem.memRwDataClearText.setOnClickListener(view -> {
+        binding.memItem.memRwDataEdit.setText("");
+    });
+    // Serial port config
+    binding.streamItem.streamModeConfigBtn.setOnClickListener(view -> {
+        handleStreamConfig();
+    });
+    // SPI read/write
+    binding.streamItem.spi.spiRwBtn.setOnClickListener(view -> {
+        handleSPIRW();
+    });
+    // SPI write clear
+    binding.streamItem.spi.spiWriteDataClearText.setOnClickListener(view -> {
+        binding.streamItem.spi.spiWriteDataEdit.setText("");
+    });
+    // SPI read clear
+    binding.streamItem.spi.spiReadDataClearText.setOnClickListener(view -> {
+        binding.streamItem.spi.spiReadDataEdit.setText("");
+    });
+    // I2C read/write
+    binding.streamItem.i2c.i2cRwBtn.setOnClickListener(view -> {
+        handleI2CRW();
+    });
+    // I2C read clear
+    binding.streamItem.i2c.i2cReadDataClearText.setOnClickListener(view -> {
+        binding.streamItem.i2c.i2cReadDataEdit.setText("");
+    });
+    // I2C write clear
+    binding.streamItem.i2c.i2cWriteDataClearText.setOnClickListener(view -> {
+        binding.streamItem.i2c.i2cWriteDataEdit.setText("");
+    });
+    // EEPROM write
+    binding.streamItem.eeprom.eepromWriteBtn.setOnClickListener(view -> {
+        handelEEPROMWrite();
+    });
+    // EEPROM read
+    binding.streamItem.eeprom.eepromReadBtn.setOnClickListener(view -> {
+        handelEEPROMRead();
+    });
+    // EEPROM read data clear
+    binding.streamItem.eeprom.eepromReadDataClearText.setOnClickListener(view -> {
+        binding.streamItem.eeprom.eepromReadDataEdit.setText("");
+    });
+    // EEPROM write clear
+    binding.streamItem.eeprom.eepromWriteDataClearText.setOnClickListener(view -> {
+        binding.streamItem.eeprom.eepromWriteDataEdit.setText("");
+    });
+    // Read GPIO
+    binding.gpioItem.readGpioBtn.setOnClickListener(view -> {
+        handelReadGpio();
+    });
+    binding.gpioItem.setGpioBtn.setOnClickListener(view -> {
+        handleSetGpio();
+    });
     }
 
 
@@ -262,32 +262,32 @@ public class MainActivity extends AppCompatActivity {
 
 
     /***************************************Device API*********************************************/
-    //打开设备
+    //Open device
     private void openDevice(){
         ArrayList<UsbDevice> usbDevices = new ArrayList<>();
         try {
             usbDevices =  CH341Manager.getInstance().enumDevice();
         } catch (CH341LibException e) {
             LogUtil.d("enum device exception:"+e.getMessage());
-            showToast("枚举设备失败");
+            showToast("Failed to enumerate devices");
             return;
         }
         if(usbDevices.size()==0){
-            showToast("未找到设备");
+            showToast("No device found");
             return ;
         }
         if(usbDevices.size()!=1){
-            showToast("只支持一个设备");
+            showToast("Only one device supported");
             return ;
         }
         UsbDevice usbDevice = usbDevices.get(0);
         try {
             if (CH341Manager.getInstance().hasPermission(usbDevice)){
                 if(!CH341Manager.getInstance().openDevice(usbDevice)){
-                    showToast("打开设备失败");
+                    showToast("Failed to open device");
                     return ;
                 }
-                showToast("打开设备成功");
+                showToast("Device opened successfully");
                 isDeviceOpen = true;
                 this.usbDevice=usbDevice;
                 sendMessage(OPEN_DEVICE);
@@ -297,16 +297,16 @@ public class MainActivity extends AppCompatActivity {
                     LogUtil.d("TermuxBridge start failed: " + e.getMessage());
                 }
             }else {
-                CH341Manager.getInstance().requestPermission(context,usbDevice);//申请权限
+                CH341Manager.getInstance().requestPermission(context,usbDevice);//Request permission
             }
         } catch (CH341LibException | NoPermissionException | ChipException e) {
             LogUtil.d("open device exception:"+e.getMessage());
-            showToast("打开设备异常");
+            showToast("Open device exception");
         }
     }
 
 
-    //关闭设备
+    //Close device
     private void closeDevice() {
         if (!isDeviceOpen ||  this.usbDevice == null){
             return;
@@ -344,143 +344,143 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    //EPP读数据
+    //EPP read data
     private void handleEppReadData() {
         String readDataLenStr = binding.eppItem.eppRwDataLenEdit.getText().toString();
         int readLen = 0;
         if (readDataLenStr.equals("")){
-            showToast("读取长度为空");
+            showToast("Read length is empty");
             return;
         }
         readLen = FormatUtil.hexToInt(readDataLenStr);
         if (readLen <= 0 || readLen >=0x1000){
-            showToast("读取长度填写错误");
+            showToast("Read length error");
             return;
         }
         if (!ch341EPPInit()){
-            showToast("初始化EPP失败");
+            showToast("EPP init failed");
             return;
         }
         byte[] buffer = new byte[readLen];
         try {
             if (CH341Manager.getInstance().CH34xEppReadData(this.usbDevice,buffer,readLen)){
                 binding.eppItem.eppRwDataEdit.setText(FormatUtil.bytesToHexString(buffer));
-                showToast("读取成功");
+                showToast("Read successful");
             }else {
-                showToast("读取失败");
+                showToast("Read failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xEppReadData exception:"+e.getMessage());
-            showToast("读取出错");
+            showToast("Read error");
         }
     }
 
-    //EPP写数据
+    //EPP write data
     private void handleEppWriteData() {
         String readDataLenStr = binding.eppItem.eppRwDataLenEdit.getText().toString();
         String readDataStr = binding.eppItem.eppRwDataEdit.getText().toString();
         int readLen = 0;
         if (readDataLenStr.equals("") || readDataStr.equals("")){
-            showToast("写入长度或数据为空");
+            showToast("Write length or data is empty");
             return;
         }
         readLen = FormatUtil.hexToInt(readDataLenStr);
         if (readLen <= 0 || readLen >=0x1000){
-            showToast("写入长度填写错误");
+            showToast("Write length error");
             return;
         }
         if (!readDataStr.matches("([0-9|a-f|A-F]{2})*")){
-            showToast("输入内容不符合hex规范");
+            showToast("Input does not conform to hex format");
             return;
         }
         if (!ch341EPPInit()){
-            showToast("初始化EPP失败");
+            showToast("EPP init failed");
             return;
         }
         byte[] data = FormatUtil.hexStringToBytes(readDataStr);
         if (data.length != readLen){
-            showToast("输出内容与长度不一致");
+            showToast("Output content length mismatch");
             return;
         }
 
         try {
             if (CH341Manager.getInstance().CH34xEppWriteData(this.usbDevice,data,readLen)){
-                showToast("写成功");
+                showToast("Write successful");
             }else {
-                showToast("写失败");
+                showToast("Write failed");
             }
         } catch (CH341LibException e) {
-            showToast("写异常");
+            showToast("Write exception");
         }
     }
 
 
-    //EPP地址读
+    //EPP address read
     private void handleEppReadAddr() {
         String readDataLenStr = binding.eppItem.eppRwAddrLenEdit.getText().toString();
         int readLen = 0;
         if (readDataLenStr.equals("")){
-            showToast("读取长度为空");
+            showToast("Read length is empty");
             return;
         }
         readLen = FormatUtil.hexToInt(readDataLenStr);
         if (readLen <= 0 || readLen >=0x1000){
-            showToast("读取长度填写错误");
+            showToast("Read length error");
             return;
         }
         if (!ch341EPPInit()){
-            showToast("初始化EPP失败");
+            showToast("EPP init failed");
             return;
         }
         byte[] buffer = new byte[readLen];
         try {
             if (CH341Manager.getInstance().CH34xEppReadAddr(this.usbDevice,buffer,readLen)){
                 binding.eppItem.eppRwAddrEdit.setText(FormatUtil.bytesToHexString(buffer));
-                showToast("读取成功");
+                showToast("Read successful");
             }else {
-                showToast("读取失败");
+                showToast("Read failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xEppReadData exception:"+e.getMessage());
-            showToast("读取出错");
+            showToast("Read error");
         }
     }
 
-    //EPP地址写
+    //EPP address write
     private void handleEppWriteAddr() {
         String writeAddrLenStr = binding.eppItem.eppRwAddrLenEdit.getText().toString();
         String writeAddrStr = binding.eppItem.eppRwAddrEdit.getText().toString();
         int writeLen = 0;
         if (writeAddrLenStr.equals("") || writeAddrStr.equals("")){
-            showToast("写入长度或数据为空");
+            showToast("Write length or data is empty");
             return;
         }
         writeLen = FormatUtil.hexToInt(writeAddrLenStr);
         if (writeLen <= 0 || writeLen >=0x1000){
-            showToast("写入长度填写错误");
+            showToast("Write length error");
             return;
         }
         if (!writeAddrStr.matches("([0-9|a-f|A-F]{2})*")){
-            showToast("输入内容不符合hex规范");
+            showToast("Input does not conform to hex format");
             return;
         }
         if (!ch341EPPInit()){
-            showToast("初始化EPP失败");
+            showToast("EPP init failed");
             return;
         }
         byte[] data = FormatUtil.hexStringToBytes(writeAddrStr);
         if (data.length != writeLen){
-            showToast("输出内容与长度不一致");
+            showToast("Output content length mismatch");
             return;
         }
         try {
             if (CH341Manager.getInstance().CH34xEppWriteAddr(this.usbDevice,data,writeLen)){
-                showToast("写成功");
+                showToast("Write successful");
             }else {
-                showToast("写失败");
+                showToast("Write failed");
             }
         } catch (CH341LibException e) {
-            showToast("写异常");
+            showToast("Write exception");
         }
     }
 
@@ -492,30 +492,30 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
     }
-    //MEM读数据
+    //MEM read data
     private void handleMemReadData() {
         String readDataLenStr = binding.memItem.memRwDataLenEdit.getText().toString();
         int readLen = 0;
         if (readDataLenStr.equals("")){
-            showToast("读取长度为空");
+            showToast("Read length is empty");
             return;
         }
         readLen = FormatUtil.hexToInt(readDataLenStr);
         if (readLen <= 0 || readLen >=0x1000){
-            showToast("读取长度填写错误");
+            showToast("Read length error");
             return;
         }
         if (!ch341MEMInit()){
-            showToast("初始化MEM失败");
+            showToast("MEM init failed");
             return;
         }
         byte[] buffer = new byte[readLen];
         try {
             if (CH341Manager.getInstance().CH34xMEMReadData(this.usbDevice,buffer,readLen, (byte) 0x00)){
                 binding.memItem.memRwDataEdit.setText(FormatUtil.bytesToHexString(buffer));
-                showToast("读取成功");
+                showToast("Read successful");
             }else {
-                showToast("读取失败");
+                showToast("Read failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xMEMReadData exception:"+e.getMessage());
@@ -523,38 +523,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //MEM写数据
+    //MEM write data
     private void handleMemWriteData() {
         String writeDataLenStr = binding.memItem.memRwDataLenEdit.getText().toString();
         String writeDataStr = binding.memItem.memRwDataEdit.getText().toString();
         int writeLen = 0;
         if (writeDataLenStr.equals("") || writeDataStr.equals("")){
-            showToast("写入长度或数据为空");
+            showToast("Write length or data is empty");
             return;
         }
         writeLen = FormatUtil.hexToInt(writeDataLenStr);
         if (writeLen <= 0 || writeLen >=0x1000){
-            showToast("写入长度填写错误");
+            showToast("Write length error");
             return;
         }
         if (!writeDataStr.matches("([0-9|a-f|A-F]{2})*")){
-            showToast("输入内容不符合hex规范");
+            showToast("Input does not conform to hex format");
             return;
         }
         if (!ch341MEMInit()){
-            showToast("初始化MEM失败");
+            showToast("MEM init failed");
             return;
         }
         byte[] data = FormatUtil.hexStringToBytes(writeDataStr);
         if (data.length != writeLen){
-            showToast("输出内容与长度不一致");
+            showToast("Output content length mismatch");
             return;
         }
         try {
             if (CH341Manager.getInstance().CH34xMEMWriteData(this.usbDevice,data,writeLen,(byte) 0)){
-                showToast("写成功");
+                showToast("Write successful");
             }else {
-                showToast("写失败");
+                showToast("Write failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xMEMWriteData exception:"+e.getMessage());
@@ -575,9 +575,9 @@ public class MainActivity extends AppCompatActivity {
         mode = FormatUtil.byteBitChange(mode,7,dataMode);
         try {
             if(CH341Manager.getInstance().CH34xSetStream(usbDevice,mode)){
-                showToast("设置成功");
+                showToast("Config successful");
             }else {
-                showToast("设置失败");
+                showToast("Config failed");
             }
         } catch (CH341LibException e) {
             showToast(e.getMessage());
@@ -596,36 +596,36 @@ public class MainActivity extends AppCompatActivity {
         return iChipSelect & 0x000000FF;
     }
 
-    //SPI 读写
+    //SPI read/write
     private void handleSPIRW(){
         int iChipSelect = getSPIChipSelect();
         String dataLenStr = binding.streamItem.spi.spiRwDataLenEdit.getText().toString();
         String writeDataStr = binding.streamItem.spi.spiWriteDataEdit.getText().toString();
         int writeLen = 0;
         if (dataLenStr.equals("") || writeDataStr.equals("") ){
-            showToast("读写长度或待写数据为空");
+            showToast("Read/write length or write data is empty");
             return;
         }
         writeLen = FormatUtil.hexToInt(dataLenStr);
         if (writeLen <= 0){
-            showToast("写入长度填写错误");
+            showToast("Write length error");
             return;
         }
         if (!writeDataStr.matches("([0-9|a-f|A-F]{2})*")){
-            showToast("输入内容不符合hex规范");
+            showToast("Input does not conform to hex format");
             return;
         }
         byte[] data = FormatUtil.hexStringToBytes(writeDataStr);
         if (data.length != writeLen){
-            showToast("输出内容与长度不一致");
+            showToast("Output content length mismatch");
             return;
         }
         try {
             if (CH341Manager.getInstance().CH34xStreamSPI4(this.usbDevice,iChipSelect,writeLen,data)){
                 binding.streamItem.spi.spiReadDataEdit.setText(FormatUtil.bytesToHexString(data));
-                showToast("读写成功");
+                showToast("Read/write successful");
             }else {
-                showToast("读写失败");
+                showToast("Read/write failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xStreamSPI4 exception:"+e.getMessage());
@@ -634,7 +634,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    //I2C 读写
+    //I2C read/write
     private void handleI2CRW(){
         String writeLenStr = binding.streamItem.i2c.i2cWriteDataLenEdit.getText().toString();
         String writeDataStr = binding.streamItem.i2c.i2cWriteDataEdit.getText().toString();
@@ -648,23 +648,23 @@ public class MainActivity extends AppCompatActivity {
             readLen = FormatUtil.hexToInt(readLenStr);
         }
         if (writeLen < 0 || readLen <0){
-            showToast("读写长度填写错误");
+            showToast("Read/write length error");
             return;
         }
         if(writeLen == 0 &&  readLen == 0 ){
-            showToast("读写长度全为空");
+            showToast("Read/write length both empty");
             return;
         }
         byte[] writeData = new byte[writeLen];
         byte[] readData = new byte[readLen];
         if (writeLen > 0 ) {
             if (!writeDataStr.matches("([0-9|a-f|A-F]{2})*")){
-                showToast("输入内容不符合hex规范");
+                showToast("Input does not conform to hex format");
                 return;
             }
             byte[] data = FormatUtil.hexStringToBytes(writeDataStr);
             if (data.length != writeLen){
-                showToast("输出内容与长度不一致");
+                showToast("Output content length mismatch");
                 return;
             }
             System.arraycopy(data,0,writeData,0,writeLen);
@@ -673,17 +673,17 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (CH341Manager.getInstance().CH34xStreamI2C(this.usbDevice,writeLen,writeData,readLen,readData)){
                 binding.streamItem.i2c.i2cReadDataEdit.setText(FormatUtil.bytesToHexString(readData));
-                showToast("I2C读写成功");
+                showToast("I2C read/write successful");
             }else {
-                showToast("I2C读写失败");
+                showToast("I2C read/write failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xStreamI2C exception:"+e.getMessage());
-            showToast("读写异常");
+            showToast("Read/write exception");
         }
     }
 
-    //EEPROM 写
+    //EEPROM write
     private void handelEEPROMWrite(){
         String addrStr = binding.streamItem.eeprom.eepromWriteAddrEdit.getText().toString();
         String writeDataLenStr = binding.streamItem.eeprom.eepromWriteDataLenEdit.getText().toString();
@@ -691,59 +691,59 @@ public class MainActivity extends AppCompatActivity {
         int writeLen = 0;
         int addr = 0;
         if (writeDataLenStr.equals("") || writeDataStr.equals("") || addrStr.equals("") ){
-            showToast("有写参数为空");
+            showToast("Some write params are empty");
             return;
         }
         addr = FormatUtil.hexToInt(addrStr);
         if (addr < 0 ){
-            showToast("地址填写错误");
+            showToast("Address error");
             return;
         }
         writeLen = FormatUtil.hexToInt(writeDataLenStr);
         if (writeLen <= 0 || writeLen >=0x400){
-            showToast("写入长度填写错误");
+            showToast("Write length error");
             return;
         }
         if (!writeDataStr.matches("([0-9|a-f|A-F]{2})*")){
-            showToast("输入内容不符合hex规范");
+            showToast("Input does not conform to hex format");
             return;
         }
         byte[] data = FormatUtil.hexStringToBytes(writeDataStr);
         if (data.length != writeLen){
-            showToast("输出内容与长度不一致");
+            showToast("Output content length mismatch");
             return;
         }
         String typeStr = binding.streamItem.eeprom.eepromTypeSpinner.getSelectedItem().toString();
         EEPROM_TYPE eepromType = EEPROM_TYPE.valueOf(typeStr);
         try {
             if (CH341Manager.getInstance().CH34xWriteEEPROM(this.usbDevice,eepromType,addr,writeLen,data)){
-                showToast("写成功");
+                showToast("Write successful");
             }else {
-                showToast("写失败");
+                showToast("Write failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xWriteEEPROM exception:"+e.getMessage());
             showToast(e.getMessage());
         }
     }
-    //EEPROM 写
+    //EEPROM read
     private void handelEEPROMRead(){
         String addrStr = binding.streamItem.eeprom.eepromReadAddrEdit.getText().toString();
         String readLenStr = binding.streamItem.eeprom.eepromReadDataLenEdit.getText().toString();
         int readLen = 0;
         int addr = 0;
         if (readLenStr.equals("") || addrStr.equals("") ){
-            showToast("有参数为空");
+            showToast("Some params are empty");
             return;
         }
         addr = FormatUtil.hexToInt(addrStr);
         if (addr < 0 ){
-            showToast("地址填写错误");
+            showToast("Address error");
             return;
         }
         readLen = FormatUtil.hexToInt(readLenStr);
         if (readLen <= 0 || readLen >=0x400){
-            showToast("读取长度填写错误");
+            showToast("Read length error");
             return;
         }
         byte[] data = new byte[readLen];
@@ -753,9 +753,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (CH341Manager.getInstance().CH34xReadEEPROM(this.usbDevice,eepromType,addr,readLen,data)){
                 binding.streamItem.eeprom.eepromReadDataEdit.setText(FormatUtil.bytesToHexString(data));
-                showToast("读成功");
+                showToast("Read successful");
             }else {
-                showToast("读失败");
+                showToast("Read failed");
             }
         } catch (CH341LibException e) {
             LogUtil.d("CH34xReadEEPROM exception:"+e.getMessage());
@@ -765,7 +765,7 @@ public class MainActivity extends AppCompatActivity {
 
     /****************************************GPIO API***********************************************/
 
-    //读取GPIO
+    //Read GPIO
     private void handelReadGpio() {
         int gpioValue = 0;
         try {
@@ -774,6 +774,7 @@ public class MainActivity extends AppCompatActivity {
             showToast(e.getMessage());
             return;
         }
+        // D0-D15, ERR, PEMP, INT, SLCT, BUSY, AUTOFD, SLCTIN, RESET, WRITE, SCL
         binding.gpioItem.cb6.setChecked((gpioValue & 0x00000001)!=0);
         binding.gpioItem.cb7.setChecked((gpioValue & 0x00000002)!=0);
         binding.gpioItem.cb8.setChecked((gpioValue & 0x00000004)!=0);
@@ -792,7 +793,7 @@ public class MainActivity extends AppCompatActivity {
         binding.gpioItem.cb15.setChecked((gpioValue & 0x00800000)!=0);
     }
 
-    //设置GPIO
+    //Set GPIO
     private void handleSetGpio() {
         int gpioDir=0,gpioVal=0;
 
@@ -821,6 +822,7 @@ public class MainActivity extends AppCompatActivity {
         //D7
         gpioDir|=(binding.gpioItem.rbOut13.isChecked()?0x00000080:0x00);
         gpioVal|=(binding.gpioItem.cb13.isChecked()?0x00000080:0x00);
+
         //ERR
         gpioDir|=(binding.gpioItem.rbOut2.isChecked()?0x00000100:0x00);
         gpioVal|=(binding.gpioItem.cb2.isChecked()?0x00000100:0x00);
@@ -859,12 +861,11 @@ public class MainActivity extends AppCompatActivity {
         gpioVal|=(binding.gpioItem.cb16.isChecked()?0x00040000:0x00);
         try {
             boolean b = CH341Manager.getInstance().CH34xSetOutput(usbDevice,0x1F,gpioDir,gpioVal);
-            showToast(b?"设置成功":"设置失败");
+            showToast(b?"Config successful":"Config failed");
         } catch (CH341LibException e) {
             showToast(e.getMessage());
         }
     }
-
 
 
 
