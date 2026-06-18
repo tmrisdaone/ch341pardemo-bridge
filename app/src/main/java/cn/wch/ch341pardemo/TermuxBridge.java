@@ -43,7 +43,7 @@ public class TermuxBridge extends Service {
     private UsbEndpoint epIn, epOut;
     private boolean usbReady = false;
     private final ExecutorService ioPool = Executors.newSingleThreadExecutor();
-    private final UsbManager usbManager;
+    private UsbManager usbManager;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -75,62 +75,6 @@ public class TermuxBridge extends Service {
                     .setOngoing(true)
                     .build());
         }
-    }
-
-    private boolean openUsb() {
-        UsbManager mgr = (UsbManager) getSystemService(USB_SERVICE);
-        HashMap<String, UsbDevice> map = mgr.getDeviceList();
-        for (UsbDevice d : map.values()) {
-            if (d.getVendorId() == VID) {
-                boolean pidMatch = false;
-                for (int p : PIDS) if (d.getProductId() == p) { pidMatch = true; break; }
-                if (pidMatch) { device = d; break; }
-            }
-        }
-        if (device == null) {
-            Log.e(TAG, "No CH341 device found");
-            return false;
-        }
-        // Check permission before opening
-        if (!mgr.hasPermission(device)) {
-            Log.e(TAG, "No USB permission for device");
-            return false;
-        }
-        conn = mgr.openDevice(device);
-        if (conn == null) {
-            Log.e(TAG, "Failed to open USB device");
-            return false;
-        }
-        for (int i = 0; i < device.getInterfaceCount(); i++) {
-            UsbInterface ui = device.getInterface(i);
-            if (ui.getInterfaceClass() == 255 || ui.getInterfaceClass() == 2) { // VENDOR_SPEC or CDC
-                intf = ui;
-                break;
-            }
-        }
-        if (intf == null) {
-            Log.e(TAG, "No suitable USB interface found");
-            return false;
-        }
-        if (!conn.claimInterface(intf, true)) {
-            Log.e(TAG, "Failed to claim USB interface (may be in use by another app)");
-            return false;
-        }
-        for (int i = 0; i < intf.getEndpointCount(); i++) {
-            UsbEndpoint ep = intf.getEndpoint(i);
-            if (ep.getDirection() == UsbConstants.USB_DIR_IN) epIn = ep;
-            else epOut = ep;
-        }
-        if (epIn == null || epOut == null) {
-            Log.e(TAG, "Could not find IN/OUT endpoints");
-            return false;
-        }
-
-        // CH341 vendor init
-        conn.controlTransfer(0x40, 0xA1, 0x0000, 0x0000, null, 0, 1000);
-        conn.controlTransfer(0x40, 0x9A, 0x1312, 0x0000, null, 0, 1000);
-        conn.controlTransfer(0x40, 0xA1, 0x0000, 0x0000, null, 0, 1000);
-        return true;
     }
 
     @Override
