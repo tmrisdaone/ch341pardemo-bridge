@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.usb.UsbDevice;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -289,13 +290,20 @@ public class MainActivity extends AppCompatActivity {
                 }
                 showToast("Device opened successfully");
                 isDeviceOpen = true;
-                this.usbDevice=usbDevice;
-                sendMessage(OPEN_DEVICE);
-                try {
-                    startService(new Intent(this, TermuxBridge.class));
-                } catch (Exception e) {
-                    LogUtil.d("TermuxBridge start failed: " + e.getMessage());
-                }
+                        this.usbDevice=usbDevice;
+                        sendMessage(OPEN_DEVICE);
+                        try {
+                            // Android 8+ requires startForegroundService for a service that
+                            // calls startForeground() to avoid IllegalStateException.
+                            Intent svc = new Intent(this, TermuxBridge.class);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                startForegroundService(svc);
+                            } else {
+                                startService(svc);
+                            }
+                        } catch (Exception e) {
+                            LogUtil.d("TermuxBridge start failed: " + e.getMessage());
+                        }
             }else {
                 CH341Manager.getInstance().requestPermission(context,usbDevice);//Request permission
             }
