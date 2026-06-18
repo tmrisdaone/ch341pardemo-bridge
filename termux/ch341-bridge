@@ -1,0 +1,114 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# CH341 Bridge client for Termux
+# Connects to the Android app's LocalServerSocket and proxies stdin/stdout.
+#
+# Usage:  ch341-bridge <command>
+#   echo -ne '\xA1\x00\x00\x00' | ch341-bridge
+#   ch341-bridge --help
+
+set -e
+
+SOCKET_PATH="/data/data/cn.wch.ch341pardemo/ch341_bridge"
+
+usage() {
+  cat <<'USAGE'
+ch341-bridge — Talk to the CH341A Bridge Android app from Termux.
+
+This uses the Android LocalServerSocket named "ch341_bridge" — only same-package
+apps (Termux) can connect. No auth, no port, no daemon listening on network.
+
+Commands:
+  ch341-bridge           Interactive REPL (stdin -> USB IN, USB OUT -> stdout)
+  echo X | ch341-bridge  One-shot write (reads back any response)
+  ch341-bridge --status  Show bridge status (GREETING banner)
+  ch341-bridge --help    Show this help
+Environment:
+  CH341_BRIDGE_DEBUG=1   Verbose error tracebacks
+USAGE
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+  usage; exit 0
+fi
+
+if [[ "$1" == "--status" ]]; then
+  if [[ ! -S "$SOCKET_PATH" ]]; then
+    echo "[!] Bridge socket not found: $SOCKET_PATH" >&2
+    echo "    Is the Android app installed and the bridge service started?" >&2
+    exit 1
+  fi
+  echo "[OK] Bridge socket: $SOCKET_PATH"
+  exit 0
+fi
+
+if [[ ! -S "$SOCKET_PATH" ]]; then
+  echo "[!] Bridge socket not found: $SOCKET_PATH" >&2
+  echo "    Start the bridge in the app first." >&2
+  exit 1
+fi
+
+# Validate Termux user/package has access (Android enforces UID gating).
+# We attempt the connect; if permission denied, socat/nc will report it.
+
+if command -v socat >/dev/null; then
+  exec socat - UNIX-CONNECT:"$SOCKET_PATH"
+fi
+
+# Fallback: use a small Python AF_UNIX proxy via stdin/stdout.
+# termux doesn't ship socat by default; rely on Python 3.
+if ! command -v python3 >/dev/null; then
+  echo "[!] Install socat or python3 first." >&2
+  exit 1
+fi
+
+CH341_BRIDGE_DEBUG="${CH341_BRIDGE_DEBUG:-0}"
+DEBUG_FLAG=""
+[[ "$CH341_BRIDGE_DEBUG" == "1" ]] && DEBUG_FLAG="--debug"
+
+exec python3 "$DEBUG_FLAG" - "$SOCKET_PATH" <<'PY'
+import os, socket, sys, threading
+
+sock_path = sys.argv[1]
+debug = os.environ.get("CH341_BRIDGE_DEBUG") == "1"
+
+def log(msg):
+    if debug:
+        sys.stderr.write(f"[bridge] {msg}\n")
+
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect(sock_path)
+except (FileNotFoundError, PermissionError) as e:
+    sys.stderr.write(f"[!] connect failed: {e}\n")
+    sys.exit(1)
+
+log(f"connected {sock_path}")
+
+def stdin_to_sock():
+    try:
+        while True:
+            chunk = sys.stdin.buffer.read(4096)
+            if not chunk:
+                break
+            s.sendall(chunk)
+    except (BrokenPipeError, OSError):
+        log("stdin pipe closed")
+
+def sock_to_stdout():
+    try:
+        while True:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+    except (ConnectionResetError, OSError):
+        log("socket closed")
+
+t1 = threading.Thread(target=stdin_to_sock, daemon=True)
+t2 = threading.Thread(target=sock_to_stdout, daemon=True)
+t1.start(); t2.start()
+t1.join(); t2.join()
+s.close()
+PY
