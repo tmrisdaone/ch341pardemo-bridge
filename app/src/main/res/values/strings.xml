@@ -1,45 +1,4 @@
 <resources>
-    <string name="app_name">CH341PARDemo</string>
-    <string name="open_device">Open Device</string>
-    <string name="close_device">Close Device</string>
-    <string name="read">Read</string>
-    <string name="write">Write</string>
-
-    <string-array name="spi_work_mode">
-        <item>Single I/O</item>
-        <item>Dual I/O</item>
-    </string-array>
-    <string-array name="spi_data_mode">
-        <item>LSB First</item>
-        <item>MSB First</item>
-    </string-array>
-
-    <string-array name="spi_chip_select">
-        <item>D0</item>
-        <item>D1</item>
-        <item>D2</item>
-    </string-array>
-
-    <string-array name="work_rate">
-        <item>20KHz</item>
-        <item>100KHz</item>
-        <item>400KHz</item>
-        <item>750KHz</item>
-    </string-array>
-    <string-array name="eeprom_type">
-        <item>ID_24C01</item>
-        <item>ID_24C02</item>
-        <item>ID_24C04</item>
-        <item>ID_24C08</item>
-        <item>ID_24C16</item>
-        <item>ID_24C32</item>
-        <item>ID_24C64</item>
-        <item>ID_24C128</item>
-        <item>ID_24C256</item>
-        <item>ID_24C512</item>
-        <item>ID_24C1024</item>
-        <item>ID_24C2048</item>
-        <item>ID_24C4096</item>
-    </string-array>
-
+    <string name="app_name">CH341 Bridge</string>
+    <string name="permission_action">cn.wch.ch341pardemo.USB_PERMISSION</string>
 </resources>

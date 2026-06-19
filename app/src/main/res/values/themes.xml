@@ -1,9 +1,11 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.CH341PARDemo" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your light theme here. -->
-         <item name="colorPrimary">@color/main_color</item>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base Material 3 theme. The Activity overrides status/nav bar
+         colors at runtime via enableEdgeToEdge(); the theme just needs
+         to exist for the system to find it. -->
+    <style name="Theme.CH341Bridge" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-
-    <style name="Theme.CH341PARDemo" parent="Base.Theme.CH341PARDemo" />
 </resources>

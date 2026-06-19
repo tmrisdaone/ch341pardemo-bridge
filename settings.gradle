@@ -15,4 +15,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "CH341PARDemo"
 include ':app'
-
