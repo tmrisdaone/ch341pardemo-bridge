@@ -39,7 +39,7 @@
             android:name=".TermuxBridge"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="data_sync" />
+            android:foregroundServiceType="dataSync" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
