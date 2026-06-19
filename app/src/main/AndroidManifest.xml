@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Pre-declare the custom permission the vendored CH341PAR lib
+         listens on so its BroadcastReceiver (cn.wch.uartlib.permission)
+         can be installed without SecurityException on Android 13+. -->
+    <uses-permission android:name="cn.wch.uartlib.permission" />
+
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
