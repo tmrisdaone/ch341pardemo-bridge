@@ -1,5 +1,7 @@
 package cn.wch.ch341pardemo.ui.settings
 
+import android.content.Context
+import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,10 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Code
@@ -30,33 +34,38 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.wch.ch341pardemo.data.UartConfig
+import cn.wch.ch341pardemo.data.SettingsRepository.Companion
 import cn.wch.ch341pardemo.ui.theme.AppThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
     val ctx = LocalContext.current
-    val app = ctx.applicationContext as android.app.Application
+    val app = ctx.applicationContext as Application
     val vm: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(app))
     val state by vm.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
+                title = { Text(text = "Settings", fontWeight = FontWeight.SemiBold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -64,13 +73,11 @@ fun SettingsScreen() {
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { SectionHeader("Bridge") }
+            item { SectionHeader(text = "Bridge") }
             item {
                 SettingsCard {
                     SettingRow(
@@ -86,20 +93,20 @@ fun SettingsScreen() {
                 }
             }
 
-            item { SectionHeader("Appearance") }
+            item { SectionHeader(text = "Appearance") }
             item {
                 SettingsCard {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Palette, contentDescription = null)
-                            Spacer(Modifier.width(12.dp))
+                            Icon(imageVector = Icons.Rounded.Palette, contentDescription = null)
+                            Spacer(modifier = Modifier.width(width = 12.dp))
                             Text(
-                                "Theme",
+                                text = "Theme",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Spacer(Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.size(size = 12.dp))
                         val modes = listOf(
                             AppThemeMode.System to "System",
                             AppThemeMode.Light to "Light",
@@ -111,14 +118,16 @@ fun SettingsScreen() {
                                     selected = state.themeMode == mode,
                                     onClick = { vm.setThemeMode(mode) },
                                     shape = SegmentedButtonDefaults.itemShape(index = idx, count = modes.size)
-                                ) { Text(label) }
+                                ) {
+                                    Text(text = label)
+                                }
                             }
                         }
                     }
                 }
             }
 
-            item { SectionHeader("Terminal defaults") }
+            item { SectionHeader(text = "Terminal defaults") }
             item {
                 SettingsCard {
                     SettingRow(
@@ -126,24 +135,36 @@ fun SettingsScreen() {
                         title = "Default baud",
                         subtitle = "${state.terminalBaud} baud (tap to change)"
                     ) {
-                        var expanded by androidx.compose.runtime.remember { mutableStateOf(false) }
-                        androidx.compose.foundation.lazy.LazyColumn(
-                            modifier = Modifier.width(220.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp),
-                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)
+                        var expanded: Boolean by remember { mutableStateOf(false) }
+                        LazyColumn(
+                            modifier = Modifier.width(width = 220.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(space = 2.dp)
                         ) {
-                            items(UartConfig.CommonBaudRates) { rate ->
-                                androidx.compose.material3.TextButton(
+                            item {
+                                TextButton(
+                                    onClick = { expanded = !expanded },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "${state.terminalBaud} baud",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                }
+                            }
+                            items(items = UartConfig.CommonBaudRates) { rate ->
+                                TextButton(
                                     onClick = {
-                                        vm.setTerminalBaud(rate)
+                                        vm.setTerminalBaud(baud = rate)
                                         expanded = false
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Text(
-                                        if (rate == state.terminalBaud) "$rate ✓" else "$rate",
+                                        text = "$rate",
                                         modifier = Modifier.fillMaxWidth(),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                                        textAlign = TextAlign.Start
                                     )
                                 }
                             }
@@ -164,7 +185,7 @@ fun SettingsScreen() {
                     SettingRow(
                         icon = Icons.Rounded.Code,
                         title = "Hex mode by default",
-                        subtitle = "Treat input as hex bytes (AA BB CC …)"
+                        subtitle = "Treat input as hex bytes (AA BB CC ...)"
                     ) {
                         Switch(
                             checked = state.terminalHexMode,
@@ -174,18 +195,25 @@ fun SettingsScreen() {
                 }
             }
 
-            item { SectionHeader("About") }
+            item { SectionHeader(text = "About") }
             item {
                 SettingsCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("CH341 Bridge v2.0", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
-                            "Kotlin + Jetpack Compose + Material 3",
+                            text = "CH341 Bridge v2.0",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Kotlin + Jetpack Compose + Material 3",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "USB Host API • No Shizuku • No root",
+                            text = "USB Host API • No Shizuku • No root",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -215,7 +243,9 @@ private fun SettingsCard(content: @Composable () -> Unit) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
-    ) { content() }
+    ) {
+        content()
+    }
 }
 
 @Composable
@@ -231,12 +261,20 @@ private fun SettingRow(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(width = 12.dp))
+        Column(modifier = Modifier.weight(weight = 1f)) {
             Text(
-                subtitle,
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

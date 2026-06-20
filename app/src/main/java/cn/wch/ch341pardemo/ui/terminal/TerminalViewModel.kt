@@ -1,6 +1,7 @@
 package cn.wch.ch341pardemo.ui.terminal
 
 import android.app.Application
+import android.content.Context
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
@@ -51,7 +52,7 @@ class TerminalViewModel(
 ) : AndroidViewModel(application) {
 
     private val usbManager: UsbManager =
-        application.getSystemService(USB_SERVICE) as UsbManager
+        application.getSystemService(Context.USB_SERVICE) as UsbManager
 
     private val _state = MutableStateFlow(TerminalUiState())
     val state: StateFlow<TerminalUiState> = _state.asStateFlow()
@@ -128,16 +129,16 @@ class TerminalViewModel(
             conn.close()
             return false
         }
-        var inEp: UsbEndpoint? = null
-        var outEp: UsbEndpoint? = null
+        var inEndpoint: UsbEndpoint? = null
+        var outEndpoint: UsbEndpoint? = null
         for (i in 0 until iface.endpointCount) {
             val ep = iface.getEndpoint(i)
-            if (ep.direction == UsbEndpoint.Direction.IN && inEp == null) inEp = ep
-            if (ep.direction == UsbEndpoint.Direction.OUT && outEp == null) outEp = ep
+            if (ep.direction == UsbEndpoint.Direction.IN && inEndpoint == null) inEndpoint = ep
+            if (ep.direction == UsbEndpoint.Direction.OUT && outEndpoint == null) outEndpoint = ep
         }
-        epIn = inEp
-        epOut = outEp
-        return inEp != null && outEp != null
+        epIn = inEndpoint
+        epOut = outEndpoint
+        return inEndpoint != null && outEndpoint != null
     }
 
     fun closeConnection() {
@@ -146,7 +147,9 @@ class TerminalViewModel(
         val conn = connection
         val iface = intf
         if (conn != null && iface != null) {
-            try { conn.releaseInterface(iface) } catch (_: Throwable) {}
+            try {
+                conn.releaseInterface(iface)
+            } catch (_: Throwable) {}
         }
         conn?.close()
         connection = null
@@ -171,7 +174,7 @@ class TerminalViewModel(
                 buf.clear()
                 try {
                     if (!req.queue(buf)) {
-                        conn.requestWait() // drain a stuck request
+                        conn.requestWait()
                         continue
                     }
                     conn.requestWait()
@@ -183,12 +186,7 @@ class TerminalViewModel(
                         appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.RX, data))
                     }
                 } catch (t: Throwable) {
-                    appendLine(TerminalLine(
-                        System.currentTimeMillis(),
-                        TerminalLine.Direction.ERROR,
-                        ByteArray(0),
-                        "Read error: ${t.message}"
-                    ))
+                    appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Read error: ${t.message}"))
                     break
                 } finally {
                     try { req.close() } catch (_: Throwable) {}
@@ -234,7 +232,6 @@ class TerminalViewModel(
     private fun writeRaw(bytes: ByteArray): Int {
         val conn = connection ?: return -1
         val ep = epOut ?: return -1
-        // CH341 is bulk. bulkTransfer blocks up to timeout.
         val sent = conn.bulkTransfer(ep, bytes, min(bytes.size, 4096), 1000)
         return sent
     }
@@ -242,10 +239,6 @@ class TerminalViewModel(
     fun setBaud(b: Int) {
         _state.update { it.copy(config = it.config.copy(baudRate = b)) }
         viewModelScope.launch { settings.setTerminalBaud(b) }
-        // Note: the vendored CH341 lib can change baud on the fly; for the
-        // raw-endpoint path we'd need a USB control transfer (SET_LINE_CODING
-        // for CDC ACM, or vendor-specific for CH341). For now we just store
-        // the new value; a real implementation would issue a control xfer.
     }
 
     fun setHexMode(hex: Boolean) {
@@ -267,7 +260,7 @@ class TerminalViewModel(
         val sb = StringBuilder()
         for (line in s.lines) {
             if (s.showTimestamps) sb.append(HexUtil.formatTimestamp(line.timestampMs)).append(' ')
-            sb.append(line.direction.name.ljust(5))
+            sb.append(line.direction.name.padEnd(5))
             sb.append(' ')
             sb.append(if (s.hexMode) HexUtil.bytesToHex(line.bytes, " ") else String(line.bytes, Charsets.UTF_8))
             if (line.note != null) sb.append("  // ").append(line.note)
@@ -276,19 +269,12 @@ class TerminalViewModel(
         return sb.toString()
     }
 
-    private fun String.ljust(width: Int): String =
-        if (length >= width) this else this + " ".repeat(width - length)
-
     fun dismissError() {
         _state.update { it.copy(errorMessage = null) }
     }
 
     private fun appendInfo(text: String) {
-        appendLine(TerminalLine(
-            System.currentTimeMillis(),
-            TerminalLine.Direction.INFO,
-            text.toByteArray(Charsets.UTF_8)
-        ))
+        appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.INFO, text.toByteArray(Charsets.UTF_8)))
     }
 
     private fun appendLine(l: TerminalLine) {

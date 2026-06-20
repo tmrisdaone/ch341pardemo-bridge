@@ -1,6 +1,5 @@
 package cn.wch.ch341pardemo.ui.home
 
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,6 +8,8 @@ import cn.wch.ch341pardemo.data.Ch341DeviceInfo
 import cn.wch.ch341pardemo.data.Ch341Repository
 import cn.wch.ch341pardemo.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
+import android.content.Context
+import android.content.Intent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,7 @@ class HomeViewModel(
         refresh()
         viewModelScope.launch {
             settings.bridgeEnabled.collect { enabled ->
-                val ctx = MyApplication.get()
+                val ctx: Context = MyApplication.get()
                 val intent = Intent(ctx, cn.wch.ch341pardemo.TermuxBridge::class.java)
                 if (enabled) {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
