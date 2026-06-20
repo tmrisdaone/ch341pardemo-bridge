@@ -37,6 +37,17 @@ class HomeViewModel(
         refresh()
         viewModelScope.launch {
             settings.bridgeEnabled.collect { enabled ->
+                val ctx = MyApplication.get()
+                val intent = Intent(ctx, cn.wch.ch341pardemo.TermuxBridge::class.java)
+                if (enabled) {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        ctx.startForegroundService(intent)
+                    } else {
+                        ctx.startService(intent)
+                    }
+                } else {
+                    ctx.stopService(intent)
+                }
                 _state.update { it.copy(bridgeEnabled = enabled) }
             }
         }

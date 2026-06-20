@@ -124,13 +124,30 @@ fun SettingsScreen() {
                     SettingRow(
                         icon = Icons.Rounded.Speed,
                         title = "Default baud",
-                        subtitle = "${state.terminalBaud} baud (set on connect)"
+                        subtitle = "${state.terminalBaud} baud (tap to change)"
                     ) {
-                        Text(
-                            "${state.terminalBaud}",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        var expanded by androidx.compose.runtime.remember { mutableStateOf(false) }
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier.width(220.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp),
+                            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)
+                        ) {
+                            items(UartConfig.CommonBaudRates) { rate ->
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        vm.setTerminalBaud(rate)
+                                        expanded = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        if (rate == state.terminalBaud) "$rate ✓" else "$rate",
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                                    )
+                                }
+                            }
+                        }
                     }
                     HorizontalDivider()
                     SettingRow(
