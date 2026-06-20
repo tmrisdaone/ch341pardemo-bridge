@@ -19,8 +19,6 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -28,9 +26,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TermuxBridge extends Service {
-    private static final String TAG = "TermuxBridge";
-    private static final int PORT = 4444;
-    private static final String LOCAL_SOCKET_NAME = "ch341_bridge";
+ private static final String TAG = "TermuxBridge";
+ // Local socket name for Termux X11/Proot bridge clients
+ private static final String LOCAL_SOCKET_NAME = "ch341_bridge";
     private static final int VID = 0x1A86;
     private static final int[] PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
 
@@ -49,7 +47,7 @@ public class TermuxBridge extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        usbManager = (UsbManager) getSystemService(USB_SERVICE);
+        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
         startForegroundIfNeeded();
         new PermissionWatcher().start();
         Log.i(TAG, "Bridge service created, waiting for USB permission");

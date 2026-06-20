@@ -40,7 +40,7 @@ class DevicesViewModel(
     val state: StateFlow<DevicesUiState> = _state.asStateFlow()
 
     private val usbManager: UsbManager =
-        application.getSystemService(USB_SERVICE) as UsbManager
+    application.getSystemService(Context.USB_SERVICE) as UsbManager
 
     private val permissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {

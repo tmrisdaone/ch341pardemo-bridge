@@ -295,15 +295,11 @@ private fun DeviceCard(d: Ch341DeviceInfo) {
                 Text(
                     text = buildString {
                         append("VID ")
-                        append(HexUtil.bytesToHex(byteArrayOf(0, 0).also {
-                            it[0] = (d.vendorId ushr 8).toByte()
-                            it[1] = (d.vendorId and 0xFF).toByte()
-                        }, ""))
+                        append((d.vendorId ushr 8) and 0xFF)
+                        append((d.vendorId and 0xFF))
                         append(" · PID ")
-                        append(HexUtil.bytesToHex(byteArrayOf(0, 0).also {
-                            it[0] = (d.productId ushr 8).toByte()
-                            it[1] = (d.productId and 0xFF).toByte()
-                        }, ""))
+                        append((d.productId ushr 8) and 0xFF)
+                        append((d.productId and 0xFF))
                         if (d.serialNumber != null) append(" · ${d.serialNumber}")
                     },
                     style = MaterialTheme.typography.bodySmall,

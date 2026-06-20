@@ -4,6 +4,9 @@ import android.content.Context
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import cn.wch.ch341lib.CH341Manager
+import cn.wch.ch341lib.exception.CH341LibException
+import cn.wch.ch347lib.exception.NoPermissionException
+import cn.wch.ch347lib.exception.ChipException
 
 /**
  * Snapshot of a CH341-compatible USB device.
@@ -90,17 +93,14 @@ class Ch341Repository(private val context: Context) {
      * Returns true if the lib accepted the device.
      */
     fun handOffToVendor(device: UsbDevice): Boolean {
-        val mgr = CH341Manager.getInstance()
-        if (!mgr.isConnected) {
-            // The lib exposes a higher-level open that handles config +
-            // interface claim in one go. We try that first; on failure
-            // the caller can fall back to raw-endpoint mode.
-            return try {
-                mgr.UartOpenDevice(device)
-            } catch (t: Throwable) {
-                false
-            }
-        }
-        return mgr.isConnected
+       val mgr = CH341Manager.getInstance()
+       if (!mgr.isConnected(device)) {
+           return try {
+               mgr.openDevice(device)
+           } catch (t: Throwable) {
+               false
+           }
+       }
+       return mgr.isConnected(device)
     }
 }
