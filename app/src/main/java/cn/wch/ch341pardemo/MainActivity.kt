@@ -21,8 +21,11 @@ import cn.wch.ch341pardemo.ui.theme.CH341Theme
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // super first on OEM ROMs (One UI 5, MIUI 13) — enableEdgeToEdge
+        // touches the Window and SparklingDonutClass needs super.onCreate
+        // to have run before the window exists.
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val settings = SettingsRepository(applicationContext)
         setContent {
             val themeMode by settings.themeMode.collectAsState(initial = AppThemeMode.System)

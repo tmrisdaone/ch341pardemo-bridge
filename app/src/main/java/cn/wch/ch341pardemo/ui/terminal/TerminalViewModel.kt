@@ -2,6 +2,7 @@ package cn.wch.ch341pardemo.ui.terminal
 
 import android.app.Application
 import android.content.Context
+import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
@@ -133,8 +134,8 @@ class TerminalViewModel(
         var outEndpoint: UsbEndpoint? = null
         for (i in 0 until iface.endpointCount) {
             val ep = iface.getEndpoint(i)
-            if (ep.direction == UsbEndpoint.Direction.IN && inEndpoint == null) inEndpoint = ep
-            if (ep.direction == UsbEndpoint.Direction.OUT && outEndpoint == null) outEndpoint = ep
+            if (ep.direction == UsbConstants.USB_DIR_IN && inEndpoint == null) inEndpoint = ep
+            if (ep.direction == UsbConstants.USB_DIR_OUT && outEndpoint == null) outEndpoint = ep
         }
         epIn = inEndpoint
         epOut = outEndpoint
