@@ -1,31 +1,39 @@
 #!/data/data/com.termux/files/usr/bin/bash
 #
 # CH341 Bridge client for Termux
-# Connects to the Android app's LocalServerSocket and proxies stdin/stdout.
+# Connects to the Android app's abstract AF_UNIX socket "ch341_bridge" and
+# proxies stdin/stdout.
 #
-# Usage:  ch341-bridge <command>
-#   echo -ne '\xA1\x00\x00\x00' | ch341-bridge
-#   ch341-bridge --help
+# NOTE: the bridge uses LocalServerSocket with a bare name ("ch341_bridge"),
+# which is an *abstract* namespace socket on Android. It does NOT exist as a
+# filesystem path, so status checks must look it up via /proc/net/unix.
 
 set -e
 
-SOCKET_PATH="/data/data/cn.wch.ch341pardemo/ch341_bridge"
+SOCKET_NAME="ch341_bridge"
 
 usage() {
   cat <<'USAGE'
 ch341-bridge — Talk to the CH341A Bridge Android app from Termux.
 
-This uses the Android LocalServerSocket named "ch341_bridge" — only same-package
-apps (Termux) can connect. No auth, no port, no daemon listening on network.
+Uses the abstract AF_UNIX socket named "ch341_bridge" — only same-package
+hosts (Termux) can connect. No auth, no TCP port, no network daemon.
 
 Commands:
   ch341-bridge           Interactive REPL (stdin -> USB IN, USB OUT -> stdout)
   echo X | ch341-bridge  One-shot write (reads back any response)
-  ch341-bridge --status  Show bridge status (GREETING banner)
+  ch341-bridge --status  Verify the Android bridge is listening
   ch341-bridge --help    Show this help
+
 Environment:
-  CH341_BRIDGE_DEBUG=1   Verbose error tracebacks
+  CH341_BRIDGE_DEBUG=1   Verbose logging to stderr (Python fallback only)
 USAGE
+}
+
+socket_listening() {
+  # Abstract namespace sockets show up in /proc/net/unix with a leading '@'
+  # in the path column. A bare name like "ch341_bridge" appears as "@ch341_bridge".
+  awk 'NR > 1 { print $NF }' /proc/net/unix 2>/dev/null | grep -qx "@${SOCKET_NAME}"
 }
 
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
@@ -33,43 +41,40 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
 fi
 
 if [[ "$1" == "--status" ]]; then
-  if [[ ! -S "$SOCKET_PATH" ]]; then
-    echo "[!] Bridge socket not found: $SOCKET_PATH" >&2
-    echo "    Is the Android app installed and the bridge service started?" >&2
-    exit 1
+  if socket_listening; then
+    echo "[OK] Bridge is listening (abstract @${SOCKET_NAME})"
+    exit 0
   fi
-  echo "[OK] Bridge socket: $SOCKET_PATH"
-  exit 0
-fi
-
-if [[ ! -S "$SOCKET_PATH" ]]; then
-  echo "[!] Bridge socket not found: $SOCKET_PATH" >&2
-  echo "    Start the bridge in the app first." >&2
+  echo "[!] Bridge socket not found in /proc/net/unix (looked for @${SOCKET_NAME})" >&2
+  echo "    Is the Android app installed and the bridge service started?" >&2
   exit 1
 fi
 
-# Validate Termux user/package has access (Android enforces UID gating).
-# We attempt the connect; if permission denied, socat/nc will report it.
-
-if command -v socat >/dev/null; then
-  exec socat - UNIX-CONNECT:"$SOCKET_PATH"
+if ! socket_listening; then
+  echo "[!] Bridge socket not listening (@${SOCKET_NAME})" >&2
+  echo "    Start the bridge in the app first (Permissions -> Bridge toggle on)." >&2
+  exit 1
 fi
 
-# Fallback: use a small Python AF_UNIX proxy via stdin/stdout.
-# termux doesn't ship socat by default; rely on Python 3.
+if command -v socat >/dev/null; then
+  # socat on Termux understands abstract sockets via ABSTRACT-CONNECT.
+  exec socat - "ABSTRACT-CONNECT:${SOCKET_NAME}"
+fi
+
+# Fallback: tiny Python AF_UNIX proxy. Termux ships Python 3 by default; no
+# socat required.
 if ! command -v python3 >/dev/null; then
   echo "[!] Install socat or python3 first." >&2
   exit 1
 fi
 
-CH341_BRIDGE_DEBUG="${CH341_BRIDGE_DEBUG:-0}"
-DEBUG_FLAG=""
-[[ "$CH341_BRIDGE_DEBUG" == "1" ]] && DEBUG_FLAG="--debug"
+export CH341_BRIDGE_DEBUG="${CH341_BRIDGE_DEBUG:-0}"
+export CH341_BRIDGE_NAME="${SOCKET_NAME}"
 
-exec python3 "$DEBUG_FLAG" - "$SOCKET_PATH" <<'PY'
-import os, socket, sys, threading
+exec python3 - <<'PY'
+import os, socket, sys, threading, traceback
 
-sock_path = sys.argv[1]
+name = os.environ.get("CH341_BRIDGE_NAME", "ch341_bridge")
 debug = os.environ.get("CH341_BRIDGE_DEBUG") == "1"
 
 def log(msg):
@@ -78,12 +83,14 @@ def log(msg):
 
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 try:
-    s.connect(sock_path)
-except (FileNotFoundError, PermissionError) as e:
+    s.connect("\0" + name)
+except (FileNotFoundError, PermissionError, OSError) as e:
     sys.stderr.write(f"[!] connect failed: {e}\n")
+    if debug:
+        sys.stderr.write(traceback.format_exc())
     sys.exit(1)
 
-log(f"connected {sock_path}")
+log(f"connected @abstract:{name}")
 
 def stdin_to_sock():
     try:

@@ -44,10 +44,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.wch.ch341pardemo.MyApplication
 import cn.wch.ch341pardemo.data.Ch341DeviceInfo
-import cn.wch.ch341pardemo.data.HexUtil
 import cn.wch.ch341pardemo.ui.theme.StatusConnected
 import cn.wch.ch341pardemo.ui.theme.StatusDisconnected
-import cn.wch.ch341pardemo.ui.theme.StatusError
 import cn.wch.ch341pardemo.ui.theme.StatusTx
 
 @Composable
@@ -141,10 +139,7 @@ private fun BridgeStatusCard(bridgeEnabled: Boolean) {
                 modifier = Modifier
                     .size(12.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (bridgeEnabled) StatusConnected
-                        else StatusDisconnected
-                    )
+                    .background(if (bridgeEnabled) StatusConnected else StatusDisconnected)
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -154,8 +149,12 @@ private fun BridgeStatusCard(bridgeEnabled: Boolean) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (bridgeEnabled) "Active — exposing USB to Termux at /data/local/tmp/ch341_bridge"
-                    else "Disabled — toggle in Settings to expose USB to Termux",
+                    // The actual socket is an abstract namespace entry
+                    // named "ch341_bridge" — there is no filesystem path.
+                    text = if (bridgeEnabled)
+                        "Active — exposing USB to Termux at abstract socket @ch341_bridge"
+                    else
+                        "Disabled — toggle in Settings to expose USB to Termux",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
