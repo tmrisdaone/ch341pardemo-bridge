@@ -174,9 +174,9 @@ class TerminalViewModel(
     private fun startReadLoop() {
         readJob?.cancel()
         readJob = viewModelScope.launch(Dispatchers.IO) {
-            _state.update { it.copy(isReading = true) }
             val conn = connection ?: return@launch
             val ep = epIn ?: return@launch
+            _state.update { it.copy(isReading = true) }
             val buf = ByteBuffer.allocate(rxBufferSize)
             val req = UsbRequest()
             try {
@@ -185,9 +185,11 @@ class TerminalViewModel(
                     buf.clear()
                     try {
                         if (!req.queue(buf)) {
+                            conn.requestWait()
                             continue
                         }
-                        conn.requestWait()
+                        val completed = conn.requestWait()
+                        if (completed != req) continue
                         val n = buf.position()
                         if (n > 0) {
                             val data = ByteArray(n)
@@ -201,7 +203,7 @@ class TerminalViewModel(
                     }
                 }
             } catch (t: Throwable) {
-                appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Initialization error: ${t.message}"))
+                appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Init error: ${t.message}"))
             } finally {
                 try { req.close() } catch (_: Throwable) {}
                 _state.update { it.copy(isReading = false) }
