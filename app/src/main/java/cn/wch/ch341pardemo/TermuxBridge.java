@@ -42,7 +42,7 @@ public class TermuxBridge extends Service {
     private UsbInterface intf;
     private UsbEndpoint epIn, epOut;
     private boolean usbReady = false;
-    private final ExecutorService ioPool = Executors.newSingleThreadExecutor();
+    private final ExecutorService ioPool = Executors.newCachedThreadPool();
     private UsbManager usbManager;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -214,10 +214,9 @@ public class TermuxBridge extends Service {
 
     private class AsyncClientHandler implements Runnable {
         private final android.net.LocalSocket socket;
-        private final ByteBuffer readBuffer = ByteBuffer.allocate(4096);
-        private final ByteBuffer writeBuffer = ByteBuffer.allocate(4096);
+        private final ByteBuffer usbReadBuffer = ByteBuffer.allocate(4096);
         private UsbRequest usbReadRequest;
-        
+
         AsyncClientHandler(android.net.LocalSocket s) { this.socket = s; }
 
         @Override
@@ -225,50 +224,62 @@ public class TermuxBridge extends Service {
             try {
                 if (usbReady && device != null) {
                     String welcome = String.format("\nCH341 TERMUX BRIDGE:\nVID:PID 0x%04X:0x%04X\nENDPOINTS IN:%d OUT:%d\nREADY\n",
-                            device.getVendorId(), device.getProductId(),
-                            epIn != null ? epIn.getAddress() : -1,
-                            epOut != null ? epOut.getAddress() : -1);
+                                device.getVendorId(), device.getProductId(),
+                                epIn != null ? epIn.getAddress() : -1,
+                                epOut != null ? epOut.getAddress() : -1);
                     socket.getOutputStream().write(welcome.getBytes());
                     socket.getOutputStream().flush();
                 }
 
-                // Setup async USB read
                 usbReadRequest = new UsbRequest();
                 usbReadRequest.initialize(conn, epIn);
-                
+                usbReadBuffer.clear();
+                usbReadRequest.queue(usbReadBuffer, usbReadBuffer.capacity());
+
+                // Start USB -> Socket thread
+                ioPool.submit(this::readUsbWriteSocket);
+                // Start Socket -> USB thread (current thread)
+                readSocketWriteUsb();
+
+            } catch (Exception e) {
+                Log.e(TAG, "bridge handler error", e);
+            } finally {
+                try { socket.close(); } catch (IOException ignored) {}
+            }
+        }
+
+        private void readSocketWriteUsb() {
+            try {
                 byte[] buf = new byte[4096];
                 while (running && !socket.isClosed() && usbReady) {
                     int r = socket.getInputStream().read(buf);
                     if (r > 0 && conn != null && epOut != null) {
-                        // Async write to USB
                         conn.bulkTransfer(epOut, buf, r, 5000);
-                        // Queue async read
-                        readBuffer.clear();
-                        readBuffer.limit(writeBuffer.capacity());
-                        usbReadRequest.queue(readBuffer, writeBuffer.capacity());
-                    }
-                    
-                    // Check for completed USB read
-                    if (usbReadRequest != null && conn.requestWait() == usbReadRequest) {
-                        int m = readBuffer.position();
-                        if (m > 0) {
-                            readBuffer.flip();
-                            byte[] response = new byte[m];
-                            readBuffer.get(response);
+                    } else if (r == -1) break;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "socket->usb error", e);
+            }
+        }
+
+        private void readUsbWriteSocket() {
+            try {
+                while (running && !socket.isClosed() && usbReady) {
+                    if (conn.requestWait() == usbReadRequest) {
+                        int bytesRead = usbReadBuffer.position();
+                        if (bytesRead > 0) {
+                            usbReadBuffer.flip();
+                            byte[] response = new byte[bytesRead];
+                            usbReadBuffer.get(response);
                             socket.getOutputStream().write(response);
                             socket.getOutputStream().flush();
                         }
-                        // Re-queue for next read
-                        readBuffer.clear();
-                        usbReadRequest.queue(readBuffer, writeBuffer.capacity());
+                        usbReadBuffer.clear();
+                        usbReadRequest.queue(usbReadBuffer, usbReadBuffer.capacity());
                     }
-                    
-                    Thread.sleep(1); // Yield
                 }
             } catch (Exception e) {
-                Log.e(TAG, "async client error", e);
-            } finally {
-                try { socket.close(); } catch (IOException ignored) {}
+                Log.e(TAG, "usb->socket error", e);
             }
         }
     }
