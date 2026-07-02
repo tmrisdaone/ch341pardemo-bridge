@@ -7,6 +7,11 @@
          can be installed without SecurityException on Android 13+. -->
     <uses-permission android:name="cn.wch.uartlib.permission" />
 
+    <!-- Foreground Service Permissions for Android 14+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Required for USB Host API on all supported Android versions. -->
     <uses-feature
         android:name="android.hardware.usb.host"
