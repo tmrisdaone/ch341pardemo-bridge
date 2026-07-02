@@ -169,31 +169,34 @@ class TerminalViewModel(
             val conn = connection ?: return@launch
             val ep = epIn ?: return@launch
             val buf = ByteBuffer.allocate(rxBufferSize)
-            while (isActive && _state.value.isOpen) {
-                val req = UsbRequest()
+            val req = UsbRequest()
+            try {
                 req.initialize(conn, ep)
-                buf.clear()
-                try {
-                    if (!req.queue(buf)) {
+                while (isActive && _state.value.isOpen) {
+                    buf.clear()
+                    try {
+                        if (!req.queue(buf)) {
+                            continue
+                        }
                         conn.requestWait()
-                        continue
+                        val n = buf.position()
+                        if (n > 0) {
+                            val data = ByteArray(n)
+                            buf.flip()
+                            buf.get(data)
+                            appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.RX, data))
+                        }
+                    } catch (t: Throwable) {
+                        appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Read error: ${t.message}"))
+                        break
                     }
-                    conn.requestWait()
-                    val n = buf.position()
-                    if (n > 0) {
-                        val data = ByteArray(n)
-                        buf.flip()
-                        buf.get(data)
-                        appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.RX, data))
-                    }
-                } catch (t: Throwable) {
-                    appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Read error: ${t.message}"))
-                    break
-                } finally {
-                    try { req.close() } catch (_: Throwable) {}
                 }
+            } catch (t: Throwable) {
+                appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Initialization error: ${t.message}"))
+            } finally {
+                try { req.close() } catch (_: Throwable) {}
+                _state.update { it.copy(isReading = false) }
             }
-            _state.update { it.copy(isReading = false) }
         }
     }
 
