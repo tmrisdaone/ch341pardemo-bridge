@@ -165,34 +165,28 @@ class TerminalViewModel(
     private fun startReadLoop() {
         readJob?.cancel()
         readJob = viewModelScope.launch(Dispatchers.IO) {
-            _state.update { it.copy(isReading = true) }
             val conn = connection ?: return@launch
             val ep = epIn ?: return@launch
+            val request = UsbRequest().also { it.initialize(conn, ep) }
+            _state.update { it.copy(isReading = true) }
             val buf = ByteBuffer.allocate(rxBufferSize)
             while (isActive && _state.value.isOpen) {
-                val req = UsbRequest()
-                req.initialize(conn, ep)
                 buf.clear()
-                try {
-                    if (!req.queue(buf)) {
-                        conn.requestWait()
-                        continue
-                    }
+                if (!request.queue(buf)) {
                     conn.requestWait()
-                    val n = buf.position()
-                    if (n > 0) {
-                        val data = ByteArray(n)
-                        buf.flip()
-                        buf.get(data)
-                        appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.RX, data))
-                    }
-                } catch (t: Throwable) {
-                    appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.ERROR, ByteArray(0), "Read error: ${t.message}"))
-                    break
-                } finally {
-                    try { req.close() } catch (_: Throwable) {}
+                    continue
+                }
+                val completed = conn.requestWait()
+                if (completed != request) continue
+                val n = buf.position()
+                if (n > 0) {
+                    buf.flip()
+                    val data = ByteArray(n)
+                    buf.get(data)
+                    appendLine(TerminalLine(System.currentTimeMillis(), TerminalLine.Direction.RX, data))
                 }
             }
+            runCatching { request.close() }
             _state.update { it.copy(isReading = false) }
         }
     }
