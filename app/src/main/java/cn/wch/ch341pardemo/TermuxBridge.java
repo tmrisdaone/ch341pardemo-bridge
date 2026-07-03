@@ -20,8 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
@@ -34,7 +33,6 @@ public class TermuxBridge extends Service {
     private static final int VID = 0x1A86;
     private static final int[] PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
 
-    private ServerSocket server;
     private android.net.LocalServerSocket localServer;
     private volatile boolean running = true;
     private UsbDevice device;
@@ -96,7 +94,6 @@ public class TermuxBridge extends Service {
     }
 
     private void closeAll() {
-        try { if (server != null) server.close(); } catch (IOException ignored) {}
         try { if (localServer != null) localServer.close(); } catch (IOException ignored) {}
         try { if (conn != null && intf != null) conn.releaseInterface(intf); } catch (Exception ignored) {}
         try { if (conn != null) conn.close(); } catch (Exception ignored) {}
