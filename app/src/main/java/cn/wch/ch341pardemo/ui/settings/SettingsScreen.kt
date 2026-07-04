@@ -2,6 +2,7 @@ package cn.wch.ch341pardemo.ui.settings
 
 import android.content.Context
 import android.app.Application
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
