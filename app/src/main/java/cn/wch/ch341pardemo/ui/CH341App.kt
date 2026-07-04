@@ -29,6 +29,7 @@ import cn.wch.ch341pardemo.ui.devices.DevicesScreen
 import cn.wch.ch341pardemo.ui.home.HomeScreen
 import cn.wch.ch341pardemo.ui.settings.SettingsScreen
 import cn.wch.ch341pardemo.ui.terminal.TerminalScreen
+import cn.wch.ch341pardemo.ui.bios.BiosFlashingScreen
 
 sealed class Destinations(
     val route: String,
@@ -53,8 +54,13 @@ sealed class Destinations(
         Icons.Outlined.Settings, Icons.Rounded.Settings
     )
 
+    data object BiosFlashing : Destinations(
+        "bios", "BIOS Flash",
+        Icons.Rounded.Bolt, Icons.Rounded.Bolt
+    )
+
     companion object {
-        val all = listOf(Home, Terminal, Devices, Settings)
+        val all = listOf(Home, Terminal, BiosFlashing, Devices, Settings)
     }
 }
 
@@ -103,6 +109,7 @@ fun CH341App() {
                 onOpenSettings = { nav.navigate(Destinations.Settings.route) }
             ) }
             composable(Destinations.Terminal.route) { TerminalScreen() }
+            composable(Destinations.BiosFlashing.route) { BiosFlashingScreen() }
             composable(Destinations.Devices.route) { DevicesScreen() }
             composable(Destinations.Settings.route) { SettingsScreen() }
         }
