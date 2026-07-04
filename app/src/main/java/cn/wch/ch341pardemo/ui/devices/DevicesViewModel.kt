@@ -97,10 +97,37 @@ class DevicesViewModel(
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    val all = repo.listDevices()
-                    val ch = repo.listCh341Devices()
-                    val withPerm = all.filter {
-                        usbManager.hasPermission(repo.getDevice(it.deviceId) ?: return@filter false)
+                    Log.d("DevicesViewModel", "Starting granular refresh...")
+
+                    val all = try {
+                        repo.listDevices().also { Log.d("DevicesViewModel", "listDevices success: ${it.size} found") }
+                    } catch (e: Exception) {
+                        Log.e("DevicesViewModel", "CRITICAL: listDevices failed", e)
+                        throw e
+                    }
+
+                    val ch = try {
+                        repo.listCh341Devices().also { Log.d("DevicesViewModel", "listCh341Devices success: ${it.size} found") }
+                    } catch (e: Exception) {
+                        Log.e("DevicesViewModel", "CRITICAL: listCh341Devices failed", e)
+                        throw e
+                    }
+
+                    val withPerm = all.filter { info ->
+                        try {
+                            val dev = repo.getDevice(info.deviceId)
+                            if (dev == null) {
+                                Log.w("DevicesViewModel", "Device ${info.deviceId} disappeared during check")
+                                false
+                            } else {
+                                val has = usbManager.hasPermission(dev)
+                                Log.d("DevicesViewModel", "Permission check for ${info.deviceId}: $has")
+                                has
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DevicesViewModel", "CRITICAL: hasPermission failed for ${info.deviceId}", e)
+                            false
+                        }
                     }.map { it.deviceId }.toSet()
 
                     Triple(all, ch, withPerm)
@@ -116,7 +143,7 @@ class DevicesViewModel(
                     )
                 }
             } catch (e: Exception) {
-                Log.e("DevicesViewModel", "Refresh failed", e)
+                Log.e("DevicesViewModel", "Refresh failed at top level", e)
                 _state.update { it.copy(isRefreshing = false, snackbar = "Failed to refresh devices: ${e.message}") }
             }
         }
