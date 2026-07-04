@@ -56,7 +56,7 @@ sealed class Destinations(
 
     data object BiosFlashing : Destinations(
         "bios", "BIOS Flash",
-        Icons.Rounded.Bolt, Icons.Rounded.Bolt
+        Icons.Rounded.Build, Icons.Rounded.Build
     )
 
     companion object {

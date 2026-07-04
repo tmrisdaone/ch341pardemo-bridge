@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilePresent
 import androidx.compose.material.icons.rounded.Memory
-import androidx.compose
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.wch.ch341pardemo.data.Ch341DeviceInfo
 import java.io.File
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BiosFlashingScreen() {
     val ctx = LocalContext.current
@@ -155,7 +156,7 @@ private fun DeviceSelectionCard(
 @Composable
 private fun FileSelectionCard(
     selectedFile: File?,
-    onSelect: (File) -> Unit
+    onSelect: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
