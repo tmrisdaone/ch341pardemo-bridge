@@ -26,6 +26,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -136,35 +138,29 @@ fun SettingsScreen() {
                         subtitle = "${state.terminalBaud} baud (tap to change)"
                     ) {
                         var expanded: Boolean by remember { mutableStateOf(false) }
-                        LazyColumn(
-                            modifier = Modifier.width(width = 220.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(space = 2.dp)
-                        ) {
-                            item {
-                                TextButton(
-                                    onClick = { expanded = !expanded },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "${state.terminalBaud} baud",
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textAlign = TextAlign.Start
-                                    )
-                                }
+                        Box {
+                            TextButton(
+                                onClick = { expanded = !expanded },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "${state.terminalBaud} baud",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
                             }
-                            items(items = UartConfig.CommonBaudRates) { rate ->
-                                TextButton(
-                                    onClick = {
-                                        vm.setTerminalBaud(baud = rate)
-                                        expanded = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "$rate",
-                                        modifier = Modifier.fillMaxWidth(),
-                                        textAlign = TextAlign.Start
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false },
+                                modifier = Modifier.width(200.dp)
+                            ) {
+                                UartConfig.CommonBaudRates.forEach { rate ->
+                                    DropdownMenuItem(
+                                        text = { Text("$rate baud") },
+                                        onClick = {
+                                            vm.setTerminalBaud(rate)
+                                            expanded = false
+                                        }
                                     )
                                 }
                             }

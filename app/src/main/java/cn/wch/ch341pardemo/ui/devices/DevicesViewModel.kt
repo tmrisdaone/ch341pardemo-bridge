@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -94,18 +95,29 @@ class DevicesViewModel(
     fun refresh() {
         _state.update { it.copy(isRefreshing = true) }
         viewModelScope.launch {
-            val all = withContext(Dispatchers.IO) { repo.listDevices() }
-            val ch = withContext(Dispatchers.IO) { repo.listCh341Devices() }
-            val withPerm = all.filter { usbManager.hasPermission(repo.getDevice(it.deviceId) ?: return@filter false) }
-                .map { it.deviceId }
-                .toSet()
-            _state.update {
-                it.copy(
-                    allUsb = all,
-                    devices = ch,
-                    hasPermission = withPerm,
-                    isRefreshing = false
-                )
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val all = repo.listDevices()
+                    val ch = repo.listCh341Devices()
+                    val withPerm = all.filter {
+                        usbManager.hasPermission(repo.getDevice(it.deviceId) ?: return@filter false)
+                    }.map { it.deviceId }.toSet()
+
+                    Triple(all, ch, withPerm)
+                }
+
+                val (all, ch, withPerm) = result
+                _state.update {
+                    it.copy(
+                        allUsb = all,
+                        devices = ch,
+                        hasPermission = withPerm,
+                        isRefreshing = false
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("DevicesViewModel", "Refresh failed", e)
+                _state.update { it.copy(isRefreshing = false, snackbar = "Failed to refresh devices: ${e.message}") }
             }
         }
     }
