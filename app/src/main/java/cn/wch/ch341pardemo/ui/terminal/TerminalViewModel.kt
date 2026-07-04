@@ -36,6 +36,7 @@ data class TerminalUiState(
     val config: UartConfig = UartConfig(),
     val isOpen: Boolean = false,
     val connectedDevice: Ch341DeviceInfo? = null,
+    val availableDevices: List<Ch341DeviceInfo> = emptyList(),
     val lines: List<TerminalLine> = emptyList(),
     val pendingInput: String = "",
     val hexMode: Boolean = false,
@@ -82,6 +83,14 @@ class TerminalViewModel(
             settings.terminalShowTimestamps.collect { show ->
                 _state.update { it.copy(showTimestamps = show) }
             }
+        }
+        refreshDevices()
+    }
+
+    fun refreshDevices() {
+        viewModelScope.launch {
+            val devices = withContext(Dispatchers.IO) { repo.listCh341Devices() }
+            _state.update { it.copy(availableDevices = devices) }
         }
     }
 

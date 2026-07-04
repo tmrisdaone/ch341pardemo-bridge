@@ -165,6 +165,14 @@ fun TerminalScreen() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Device Selection
+            DevicePicker(
+                devices = state.availableDevices,
+                selectedDevice = state.connectedDevice,
+                onSelect = { vm.selectDevice(it) },
+                onRefresh = { vm.refreshDevices() }
+            )
+
             // Status + baud row
             StatusRow(
                 isOpen = state.isOpen,
