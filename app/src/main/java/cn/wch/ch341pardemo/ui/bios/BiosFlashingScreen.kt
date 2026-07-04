@@ -43,7 +43,7 @@ fun BiosFlashingScreen() {
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uris: List<android.net.Uri> ->
+        onResult = { uris ->
             uris.firstOrNull()?.let { vm.selectFile(it) }
         }
     )
@@ -57,7 +57,7 @@ fun BiosFlashingScreen() {
 
     LaunchedEffect(state.isRequestingBackupUri) {
         if (state.isRequestingBackupUri) {
-            backupPicker.launch(arrayOf("bios_backup.bin"))
+            backupPicker.launch("bios_backup.bin")
         }
     }
 
