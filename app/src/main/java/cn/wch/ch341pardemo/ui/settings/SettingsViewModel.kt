@@ -35,27 +35,25 @@ class SettingsViewModel(
         repo.themeMode,
         repo.bridgeEnabled,
         repo.terminalBaud,
-        combine(
-            repo.terminalShowTimestamps,
-            repo.terminalHexMode,
-        ) { show, hex -> show to hex },
+        repo.terminalShowTimestamps,
+        repo.terminalHexMode,
         repo.uartParity,
         repo.uartStopBits,
         repo.uartFlowControl,
         repo.spiClockSpeed,
         repo.spiMode
-    ) { theme, bridge, baud, terminal, parity, stopBits, flow, spiClock, spiMode ->
+    ) { array ->
         SettingsUiState(
-            themeMode = theme,
-            bridgeEnabled = bridge,
-            terminalBaud = baud,
-            terminalShowTimestamps = terminal.first,
-            terminalHexMode = terminal.second,
-            uartParity = parity,
-            uartStopBits = stopBits,
-            uartFlowControl = flow,
-            spiClockSpeed = spiClock,
-            spiMode = spiMode
+            themeMode = array[0] as AppThemeMode,
+            bridgeEnabled = array[1] as Boolean,
+            terminalBaud = array[2] as Int,
+            terminalShowTimestamps = array[3] as Boolean,
+            terminalHexMode = array[4] as Boolean,
+            uartParity = array[5] as String,
+            uartStopBits = array[6] as String,
+            uartFlowControl = array[7] as String,
+            spiClockSpeed = array[8] as String,
+            spiMode = array[9] as String
         )
     }.stateIn(
         scope = viewModelScope,

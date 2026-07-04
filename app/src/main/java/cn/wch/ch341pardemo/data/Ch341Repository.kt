@@ -113,9 +113,11 @@ class Ch341Repository(private val context: Context) {
         return try {
             val mgr = CH341Manager.getInstance()
             mgr.CH34xSetParaMode(device, 0x01)
-            val response = mgr.CH34xStreamSPI5(device, byteArrayOf(0x9F.toByte()))
-            if (response == null || response.isEmpty()) return null
-            response.joinToString("") { "%02X".format(it) }
+            val sendBuf = byteArrayOf(0x9F.toByte())
+            val recvBuf = ByteArray(3) // JEDEC ID is 3 bytes
+            val success = mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            if (!success) return null
+            recvBuf.joinToString("") { "%02X".format(it) }
         } catch (e: CH341LibException) {
             null
         } catch (e: Exception) {
@@ -138,12 +140,13 @@ class Ch341Repository(private val context: Context) {
 
             // Send command [0x03, addrH, addrM, addrL] followed by dummy bytes to clock out data
             val sendBuf = byteArrayOf(0x03.toByte(), addrHigh, addrMid, addrLow) + ByteArray(length) { 0 }
-            val response = mgr.CH34xStreamSPI5(device, sendBuf)
+            val recvBuf = ByteArray(sendBuf.size)
+            val success = mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
 
-            if (response == null || response.size < 4) return null
+            if (!success || recvBuf.size < 4) return null
 
             // The first 4 bytes of the response are received while sending the command
-            response.drop(4).toByteArray()
+            recvBuf.copyOfRange(4, recvBuf.size)
         } catch (e: CH341LibException) {
             null
         } catch (e: Exception) {
