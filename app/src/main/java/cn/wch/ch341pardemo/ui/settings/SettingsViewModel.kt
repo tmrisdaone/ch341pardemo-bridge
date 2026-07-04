@@ -19,6 +19,11 @@ data class SettingsUiState(
     val terminalBaud: Int = 115_200,
     val terminalShowTimestamps: Boolean = true,
     val terminalHexMode: Boolean = false,
+    val uartParity: String = "None",
+    val uartStopBits: String = "1",
+    val uartFlowControl: String = "None",
+    val spiClockSpeed: String = "1MHz",
+    val spiMode: String = "0",
 )
 
 class SettingsViewModel(
@@ -33,14 +38,24 @@ class SettingsViewModel(
         combine(
             repo.terminalShowTimestamps,
             repo.terminalHexMode,
-        ) { show, hex -> show to hex }
-    ) { theme, bridge, baud, terminal ->
+        ) { show, hex -> show to hex },
+        repo.uartParity,
+        repo.uartStopBits,
+        repo.uartFlowControl,
+        repo.spiClockSpeed,
+        repo.spiMode
+    ) { theme, bridge, baud, terminal, parity, stopBits, flow, spiClock, spiMode ->
         SettingsUiState(
             themeMode = theme,
             bridgeEnabled = bridge,
             terminalBaud = baud,
             terminalShowTimestamps = terminal.first,
             terminalHexMode = terminal.second,
+            uartParity = parity,
+            uartStopBits = stopBits,
+            uartFlowControl = flow,
+            spiClockSpeed = spiClock,
+            spiMode = spiMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -53,6 +68,11 @@ class SettingsViewModel(
     fun setTerminalBaud(baud: Int) = viewModelScope.launch { repo.setTerminalBaud(baud) }
     fun setTerminalShowTimestamps(v: Boolean) = viewModelScope.launch { repo.setTerminalShowTimestamps(v) }
     fun setTerminalHexMode(v: Boolean) = viewModelScope.launch { repo.setTerminalHexMode(v) }
+    fun setUartParity(parity: String) = viewModelScope.launch { repo.setUartParity(parity) }
+    fun setUartStopBits(stopBits: String) = viewModelScope.launch { repo.setUartStopBits(stopBits) }
+    fun setUartFlowControl(flow: String) = viewModelScope.launch { repo.setUartFlowControl(flow) }
+    fun setSpiClockSpeed(speed: String) = viewModelScope.launch { repo.setSpiClockSpeed(speed) }
+    fun setSpiMode(mode: String) = viewModelScope.launch { repo.setSpiMode(mode) }
 
     class Factory(private val app: Application) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

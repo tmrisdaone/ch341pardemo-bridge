@@ -103,4 +103,72 @@ class Ch341Repository(private val context: Context) {
        }
        return mgr.isConnected(device)
     }
+
+    /**
+     * Detects the SPI flash chip connected to the adapter.
+     * Returns the chip ID as a hex string or null if detection fails.
+     */
+    fun detectSpiChip(device: UsbDevice): String? {
+        if (!handOffToVendor(device)) return null
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+            val response = mgr.CH34xStreamSPI5(device, byteArrayOf(0x9F.toByte()))
+            if (response == null || response.isEmpty()) return null
+            response.joinToString("") { "%02X".format(it) }
+        } catch (e: CH341LibException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Reads a block of data from the SPI flash.
+     */
+    fun readSpiFlash(device: UsbDevice, address: Long, length: Int): ByteArray? {
+        if (!handOffToVendor(device)) return null
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            // Send command [0x03, addrH, addrM, addrL] followed by dummy bytes to clock out data
+            val sendBuf = byteArrayOf(0x03.toByte(), addrHigh, addrMid, addrLow) + ByteArray(length) { 0 }
+            val response = mgr.CH34xStreamSPI5(device, sendBuf)
+
+            if (response == null || response.size < 4) return null
+
+            // The first 4 bytes of the response are received while sending the command
+            response.drop(4).toByteArray()
+        } catch (e: CH341LibException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Backs up the entire flash to the provided output stream.
+     */
+    fun backupFullFlash(device: UsbDevice, outputStream: java.io.OutputStream): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val totalSize = 16 * 1024 * 1024 // 16MB default
+            val chunkSize = 4096
+            for (i in 0 until totalSize step chunkSize) {
+                val length = if (totalSize - i < chunkSize) (totalSize - i) else chunkSize
+                val data = readSpiFlash(device, i.toLong(), length) ?: return false
+                outputStream.write(data)
+            }
+            true
+        } catch (e: CH341LibException) {
+            false
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

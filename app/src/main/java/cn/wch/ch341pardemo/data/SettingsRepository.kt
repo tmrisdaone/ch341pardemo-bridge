@@ -24,6 +24,11 @@ class SettingsRepository(private val context: Context) {
         val TERMINAL_BAUD = stringPreferencesKey("terminal_baud")
         val TERMINAL_SHOW_TIMESTAMPS = booleanPreferencesKey("terminal_show_timestamps")
         val TERMINAL_HEX_MODE = booleanPreferencesKey("terminal_hex_mode")
+        val UART_PARITY = stringPreferencesKey("uart_parity")
+        val UART_STOP_BITS = stringPreferencesKey("uart_stop_bits")
+        val UART_FLOW_CONTROL = stringPreferencesKey("uart_flow_control")
+        val SPI_CLOCK_SPEED = stringPreferencesKey("spi_clock_speed")
+        val SPI_MODE = stringPreferencesKey("spi_mode")
     }
 
     val themeMode: Flow<AppThemeMode> = context.dataStore.data.map { p: Preferences ->
@@ -50,6 +55,26 @@ class SettingsRepository(private val context: Context) {
         p[Keys.TERMINAL_HEX_MODE] ?: false
     }
 
+    val uartParity: Flow<String> = context.dataStore.data.map { p ->
+        p[Keys.UART_PARITY] ?: "None"
+    }
+
+    val uartStopBits: Flow<String> = context.dataStore.data.map { p ->
+        p[Keys.UART_STOP_BITS] ?: "1"
+    }
+
+    val uartFlowControl: Flow<String> = context.dataStore.data.map { p ->
+        p[Keys.UART_FLOW_CONTROL] ?: "None"
+    }
+
+    val spiClockSpeed: Flow<String> = context.dataStore.data.map { p ->
+        p[Keys.SPI_CLOCK_SPEED] ?: "1MHz"
+    }
+
+    val spiMode: Flow<String> = context.dataStore.data.map { p ->
+        p[Keys.SPI_MODE] ?: "0"
+    }
+
     suspend fun setThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { p ->
             p[Keys.THEME_MODE] = when (mode) {
@@ -74,5 +99,25 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTerminalHexMode(hex: Boolean) {
         context.dataStore.edit { p -> p[Keys.TERMINAL_HEX_MODE] = hex }
+    }
+
+    suspend fun setUartParity(parity: String) {
+        context.dataStore.edit { p -> p[Keys.UART_PARITY] = parity }
+    }
+
+    suspend fun setUartStopBits(stopBits: String) {
+        context.dataStore.edit { p -> p[Keys.UART_STOP_BITS] = stopBits }
+    }
+
+    suspend fun setUartFlowControl(flow: String) {
+        context.dataStore.edit { p -> p[Keys.UART_FLOW_CONTROL] = flow }
+    }
+
+    suspend fun setSpiClockSpeed(speed: String) {
+        context.dataStore.edit { p -> p[Keys.SPI_CLOCK_SPEED] = speed }
+    }
+
+    suspend fun setSpiMode(mode: String) {
+        context.dataStore.edit { p -> p[Keys.SPI_MODE] = mode }
     }
 }

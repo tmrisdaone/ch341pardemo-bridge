@@ -167,6 +167,76 @@ fun SettingsScreen() {
                 }
             }
 
+            item { SectionHeader(text = "UART Configuration") }
+            item {
+                SettingsCard {
+                    SettingRow(
+                        icon = Icons.Rounded.SettingsRemote,
+                        title = "Parity",
+                        subtitle = "Current: ${state.uartParity}"
+                    ) {
+                        GenericDropdownPicker(
+                            currentValue = state.uartParity,
+                            options = listOf("None", "Even", "Odd"),
+                            onValueChange = { vm.setUartParity(it) }
+                        )
+                    }
+                    HorizontalDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.SettingsRemote,
+                        title = "Stop Bits",
+                        subtitle = "Current: ${state.uartStopBits}"
+                    ) {
+                        GenericDropdownPicker(
+                            currentValue = state.uartStopBits,
+                            options = listOf("1", "1.5", "2"),
+                            onValueChange = { vm.setUartStopBits(it) }
+                        )
+                    }
+                    HorizontalDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.SettingsRemote,
+                        title = "Flow Control",
+                        subtitle = "Current: ${state.uartFlowControl}"
+                    ) {
+                        GenericDropdownPicker(
+                            currentValue = state.uartFlowControl,
+                            options = listOf("None", "RTS/CTS", "XON/XOFF"),
+                            onValueChange = { vm.setUartFlowControl(it) }
+                        )
+                    }
+                }
+            }
+
+            item { SectionHeader(text = "SPI Configuration") }
+            item {
+                SettingsCard {
+                    SettingRow(
+                        icon = Icons.Rounded.SettingsRemote,
+                        title = "Clock Speed",
+                        subtitle = "Current: ${state.spiClockSpeed}"
+                    ) {
+                        GenericDropdownPicker(
+                            currentValue = state.spiClockSpeed,
+                            options = listOf("1MHz", "2MHz", "4MHz", "8MHz", "16MHz", "32MHz"),
+                            onValueChange = { vm.setSpiClockSpeed(it) }
+                        )
+                    }
+                    HorizontalDivider()
+                    SettingRow(
+                        icon = Icons.Rounded.SettingsRemote,
+                        title = "SPI Mode",
+                        subtitle = "Current: ${state.spiMode}"
+                    ) {
+                        GenericDropdownPicker(
+                            currentValue = state.spiMode,
+                            options = listOf("0", "1", "2", "3"),
+                            onValueChange = { vm.setSpiMode(it) }
+                        )
+                    }
+                }
+            }
+
             item { SectionHeader(text = "About") }
             item {
                 SettingsCard {
@@ -197,9 +267,10 @@ fun SettingsScreen() {
 }
 
 @Composable
-private fun BaudPicker(
-    currentBaud: Int,
-    onBaudChange: (Int) -> Unit
+private fun GenericDropdownPicker(
+    currentValue: String,
+    options: List<String>,
+    onValueChange: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
@@ -208,7 +279,7 @@ private fun BaudPicker(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "$currentBaud baud",
+                text = currentValue,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Start
             )
@@ -218,17 +289,32 @@ private fun BaudPicker(
             onDismissRequest = { expanded = false },
             modifier = Modifier.width(200.dp)
         ) {
-            UartConfig.CommonBaudRates.forEach { rate ->
+            options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text("$rate baud") },
+                    text = { Text(option) },
                     onClick = {
-                        onBaudChange(rate)
+                        onValueChange(option)
                         expanded = false
                     }
                 )
             }
         }
     }
+}
+
+@Composable
+private fun BaudPicker(
+    currentBaud: Int,
+    onBaudChange: (Int) -> Unit
+) {
+    val options = UartConfig.CommonBaudRates.map { "$it baud" }
+    GenericDropdownPicker(
+        currentValue = "$currentBaud baud",
+        options = options,
+        onValueChange = { label ->
+            onBaudChange(label.removeSuffix(" baud").toInt())
+        }
+    )
 }
 
 @Composable
