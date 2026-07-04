@@ -10,7 +10,6 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Terminal
-import androidx.compose.material.icons.rounded.Info as InfoIcon
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -57,7 +56,7 @@ sealed class Destinations(
 
     data object BiosFlashing : Destinations(
         "bios", "BIOS Flash",
-        InfoIcon, InfoIcon
+        Icons.Rounded.Info, Icons.Rounded.Info
     )
 
     companion object {
