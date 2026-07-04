@@ -1,7 +1,7 @@
 package cn.wch.ch341pardemo.ui.settings
 
-import android.content.Context
 import android.app.Application
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -137,34 +137,10 @@ fun SettingsScreen() {
                         title = "Default baud",
                         subtitle = "${state.terminalBaud} baud (tap to change)"
                     ) {
-                        var expanded: Boolean by remember { mutableStateOf(false) }
-                        Box {
-                            TextButton(
-                                onClick = { expanded = !expanded },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "${state.terminalBaud} baud",
-                                    modifier = Modifier.fillMaxWidth(),
-                                    textAlign = TextAlign.Start
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false },
-                                modifier = Modifier.width(200.dp)
-                            ) {
-                                UartConfig.CommonBaudRates.forEach { rate ->
-                                    DropdownMenuItem(
-                                        text = { Text("$rate baud") },
-                                        onClick = {
-                                            vm.setTerminalBaud(rate)
-                                            expanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        BaudPicker(
+                            currentBaud = state.terminalBaud,
+                            onBaudChange = { vm.setTerminalBaud(it) }
+                        )
                     }
                     HorizontalDivider()
                     SettingRow(
@@ -215,6 +191,41 @@ fun SettingsScreen() {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BaudPicker(
+    currentBaud: Int,
+    onBaudChange: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "$currentBaud baud",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Start
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.width(200.dp)
+        ) {
+            UartConfig.CommonBaudRates.forEach { rate ->
+                DropdownMenuItem(
+                    text = { Text("$rate baud") },
+                    onClick = {
+                        onBaudChange(rate)
+                        expanded = false
+                    }
+                )
             }
         }
     }
