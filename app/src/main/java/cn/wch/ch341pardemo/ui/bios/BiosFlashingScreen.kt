@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.wch.ch341pardemo.data.Ch341DeviceInfo
-import java.io.File
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +43,7 @@ fun BiosFlashingScreen() {
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uris: List<android.net.Uri> ->
+        onResult = { uris: List<Uri> ->
             uris.firstOrNull()?.let { vm.selectFile(it) }
         }
     )
@@ -227,7 +227,7 @@ private fun DeviceSelectionCard(
 
 @Composable
 private fun FileSelectionCard(
-    selectedFileUri: android.net.Uri?,
+    selectedFileUri: Uri?,
     onSelect: () -> Unit
 ) {
     ElevatedCard(
