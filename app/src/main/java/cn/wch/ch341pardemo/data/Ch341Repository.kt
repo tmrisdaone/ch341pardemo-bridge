@@ -173,5 +173,54 @@ class Ch341Repository(private val context: Context) {
         } catch (e: Exception) {
             false
         }
+    fun writeSpiFlash(device: UsbDevice, address: Long, data: ByteArray): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            // 1. Write Enable (0x06)
+            val weBuf = byteArrayOf(0x06.toByte())
+            val weRecv = ByteArray(1)
+            if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
+
+            // 2. Page Program (0x02)
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            val sendBuf = byteArrayOf(0x02.toByte(), addrHigh, addrMid, addrLow) + data
+            val recvBuf = ByteArray(sendBuf.size)
+            mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun eraseSpiFlash(device: UsbDevice, address: Long): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            // 1. Write Enable (0x06)
+            val weBuf = byteArrayOf(0x06.toByte())
+            val weRecv = ByteArray(1)
+            if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
+
+            // 2. Sector Erase (0x20) - 4KB
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            val sendBuf = byteArrayOf(0x20.toByte(), addrHigh, addrMid, addrLow)
+            val recvBuf = ByteArray(sendBuf.size)
+            mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 }
+

@@ -160,39 +160,42 @@ class BiosFlashingViewModel(
         val usbDevice = repo.getDevice(deviceInfo.deviceId) ?: return false
         if (!repo.hasPermission(usbDevice)) return false
 
-        val conn = usbManager.openDevice(usbDevice) ?: return false
-        try {
-            val intf = usbDevice.getInterface(0) ?: return false
-            if (!conn.claimInterface(intf, true)) return false
-
-            val epOut = intf.getEndpoint(0) // Simplified for example, should find correct EP
-
+        return try {
             val bytes = getApplication().contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: throw Exception("Could not read file from URI")
 
-            val chunkSize = 64
+            val pageSize = 256
+            val sectorSize = 4096
 
-            for (i in 0 until bytes.size step chunkSize) {
-                val end = minOf(i + chunkSize, bytes.size)
+            for (i in 0 until bytes.size step pageSize) {
+                val end = minOf(i + pageSize, bytes.size)
                 val chunk = bytes.sliceArray(i until end)
 
-                conn.bulkTransfer(epOut, chunk, chunk.size, 1000)
+                // Erase sector if at sector boundary
+                if (i % sectorSize == 0) {
+                    withContext(Dispatchers.Main) {
+                        _state.update { it.copy(log = it.log + "Erasing sector at $i...") }
+                    }
+                    if (!repo.eraseSpiFlash(usbDevice, i.toLong())) {
+                        throw Exception("Failed to erase sector at $i")
+                    }
+                }
 
-                // Logic for ACK would go here
+                if (!repo.writeSpiFlash(usbDevice, i.toLong(), chunk)) {
+                    throw Exception("Failed to write page at $i")
+                }
 
                 val progress = i.toFloat() / bytes.size
                 withContext(Dispatchers.Main) {
-                    _state.update { it.copy(progress = progress, log = it.log + "Sent bytes $i..$end") }
+                    _state.update { it.copy(progress = progress, log = it.log + "Flashed bytes $i..$end") }
                 }
             }
-            return true
+            true
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 _state.update { it.copy(log = it.log + "Error: ${e.message}") }
             }
-            return false
-        } finally {
-            conn.close()
+            false
         }
     }
 
