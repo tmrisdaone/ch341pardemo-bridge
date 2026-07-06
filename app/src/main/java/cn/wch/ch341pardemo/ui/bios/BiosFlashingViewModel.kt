@@ -118,7 +118,8 @@ class BiosFlashingViewModel(
                     val usb = repo.getDevice(device.deviceId) ?: return@withContext false
                     if (!repo.hasPermission(usb)) return@withContext false
 
-                    getApplication().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val resolver = getApplication<Application>().contentResolver
+                    resolver.openOutputStream(uri)?.use { outputStream ->
                         repo.backupFullFlash(usb, outputStream)
                     } ?: false
                 } catch (e: Exception) {
@@ -161,7 +162,8 @@ class BiosFlashingViewModel(
         if (!repo.hasPermission(usbDevice)) return false
 
         return try {
-            val bytes = getApplication().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            val resolver = getApplication<Application>().contentResolver
+            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
                 ?: throw Exception("Could not read file from URI")
 
             val pageSize = 256

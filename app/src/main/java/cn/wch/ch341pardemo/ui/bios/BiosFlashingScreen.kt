@@ -43,8 +43,8 @@ fun BiosFlashingScreen() {
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uris: List<Uri> ->
-            uris.firstOrNull()?.let { vm.selectFile(it) }
+        onResult = { uri: Uri? ->
+            uri?.let { vm.selectFile(it) }
         }
     )
 
@@ -91,7 +91,7 @@ fun BiosFlashingScreen() {
             // File Selection
             FileSelectionCard(
                 selectedFileUri = state.selectedFileUri,
-                onSelect = { filePicker.launch("application/octet-stream") }
+                onSelect = { filePicker.launch(arrayOf("application/octet-stream")) }
             )
 
             // Operations Section
