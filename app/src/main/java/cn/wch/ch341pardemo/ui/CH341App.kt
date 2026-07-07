@@ -10,6 +10,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -56,7 +58,7 @@ sealed class Destinations(
 
     data object BiosFlashing : Destinations(
         "bios", "BIOS Flash",
-        Icons.Rounded.Bolt, Icons.Rounded.Bolt
+        Icons.Outlined.Info, Icons.Rounded.Info
     )
 
     companion object {

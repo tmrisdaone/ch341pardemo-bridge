@@ -165,6 +165,14 @@ fun TerminalScreen() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Device Selection
+            DevicePicker(
+                devices = state.availableDevices,
+                selectedDevice = state.connectedDevice,
+                onSelect = { vm.selectDevice(it) },
+                onRefresh = { vm.refreshDevices() }
+            )
+
             // Status + baud row
             StatusRow(
                 isOpen = state.isOpen,
@@ -236,6 +244,57 @@ fun TerminalScreen() {
                     ctx.startActivity(Intent.createChooser(intent, "Share terminal log"))
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun DevicePicker(
+    devices: List<cn.wch.ch341pardemo.data.Ch341DeviceInfo>,
+    selectedDevice: cn.wch.ch341pardemo.data.Ch341DeviceInfo?,
+    onSelect: (cn.wch.ch341pardemo.data.Ch341DeviceInfo) -> Unit,
+    onRefresh: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Device: ", style = MaterialTheme.typography.bodyMedium)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { if (expanded) expanded = false else expanded = true },
+        ) {
+            OutlinedTextField(
+                value = selectedDevice?.productName ?: "Select CH341...",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .weight(1f),
+                singleLine = true
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                devices.forEach { device ->
+                    DropdownMenuItem(
+                        text = { Text(device.productName ?: "Unknown Device") },
+                        onClick = {
+                            onSelect(device)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        IconButton(onClick = onRefresh) {
+            Icon(Icons.Rounded.Hub, contentDescription = "Refresh devices")
         }
     }
 }

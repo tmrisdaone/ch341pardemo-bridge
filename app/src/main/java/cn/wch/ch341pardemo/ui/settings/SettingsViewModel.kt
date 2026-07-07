@@ -19,6 +19,11 @@ data class SettingsUiState(
     val terminalBaud: Int = 115_200,
     val terminalShowTimestamps: Boolean = true,
     val terminalHexMode: Boolean = false,
+    val uartParity: String = "None",
+    val uartStopBits: String = "1",
+    val uartFlowControl: String = "None",
+    val spiClockSpeed: String = "1MHz",
+    val spiMode: String = "0",
 )
 
 class SettingsViewModel(
@@ -27,20 +32,30 @@ class SettingsViewModel(
 ) : AndroidViewModel(application) {
 
     val state: StateFlow<SettingsUiState> = combine(
-        repo.themeMode,
-        repo.bridgeEnabled,
-        repo.terminalBaud,
-        combine(
-            repo.terminalShowTimestamps,
-            repo.terminalHexMode,
-        ) { show, hex -> show to hex }
-    ) { theme, bridge, baud, terminal ->
+        listOf(
+            repo.themeMode as kotlinx.coroutines.flow.Flow<Any>,
+            repo.bridgeEnabled as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalBaud as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalShowTimestamps as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalHexMode as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartParity as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartStopBits as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartFlowControl as kotlinx.coroutines.flow.Flow<Any>,
+            repo.spiClockSpeed as kotlinx.coroutines.flow.Flow<Any>,
+            repo.spiMode as kotlinx.coroutines.flow.Flow<Any>
+        )
+    ) { array ->
         SettingsUiState(
-            themeMode = theme,
-            bridgeEnabled = bridge,
-            terminalBaud = baud,
-            terminalShowTimestamps = terminal.first,
-            terminalHexMode = terminal.second,
+            themeMode = array[0] as AppThemeMode,
+            bridgeEnabled = array[1] as Boolean,
+            terminalBaud = array[2] as Int,
+            terminalShowTimestamps = array[3] as Boolean,
+            terminalHexMode = array[4] as Boolean,
+            uartParity = array[5] as String,
+            uartStopBits = array[6] as String,
+            uartFlowControl = array[7] as String,
+            spiClockSpeed = array[8] as String,
+            spiMode = array[9] as String
         )
     }.stateIn(
         scope = viewModelScope,
@@ -53,6 +68,11 @@ class SettingsViewModel(
     fun setTerminalBaud(baud: Int) = viewModelScope.launch { repo.setTerminalBaud(baud) }
     fun setTerminalShowTimestamps(v: Boolean) = viewModelScope.launch { repo.setTerminalShowTimestamps(v) }
     fun setTerminalHexMode(v: Boolean) = viewModelScope.launch { repo.setTerminalHexMode(v) }
+    fun setUartParity(parity: String) = viewModelScope.launch { repo.setUartParity(parity) }
+    fun setUartStopBits(stopBits: String) = viewModelScope.launch { repo.setUartStopBits(stopBits) }
+    fun setUartFlowControl(flow: String) = viewModelScope.launch { repo.setUartFlowControl(flow) }
+    fun setSpiClockSpeed(speed: String) = viewModelScope.launch { repo.setSpiClockSpeed(speed) }
+    fun setSpiMode(mode: String) = viewModelScope.launch { repo.setSpiMode(mode) }
 
     class Factory(private val app: Application) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

@@ -103,4 +103,126 @@ class Ch341Repository(private val context: Context) {
        }
        return mgr.isConnected(device)
     }
+
+    /**
+     * Detects the SPI flash chip connected to the adapter.
+     * Returns the chip ID as a hex string or null if detection fails.
+     */
+    fun detectSpiChip(device: UsbDevice): String? {
+        if (!handOffToVendor(device)) return null
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+            val sendBuf = byteArrayOf(0x9F.toByte())
+            val recvBuf = ByteArray(3) // JEDEC ID is 3 bytes
+            val success = mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            if (!success) return null
+            recvBuf.joinToString("") { "%02X".format(it) }
+        } catch (e: CH341LibException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Reads a block of data from the SPI flash.
+     */
+    fun readSpiFlash(device: UsbDevice, address: Long, length: Int): ByteArray? {
+        if (!handOffToVendor(device)) return null
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            // Send command [0x03, addrH, addrM, addrL] followed by dummy bytes to clock out data
+            val sendBuf = byteArrayOf(0x03.toByte(), addrHigh, addrMid, addrLow) + ByteArray(length) { 0 }
+            val recvBuf = ByteArray(sendBuf.size)
+            val success = mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+
+            if (!success || recvBuf.size < 4) return null
+
+            // The first 4 bytes of the response are received while sending the command
+            recvBuf.copyOfRange(4, recvBuf.size)
+        } catch (e: CH341LibException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Backs up the entire flash to the provided output stream.
+     */
+    fun backupFullFlash(device: UsbDevice, outputStream: java.io.OutputStream): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val totalSize = 16 * 1024 * 1024 // 16MB default
+            val chunkSize = 4096
+            for (i in 0 until totalSize step chunkSize) {
+                val length = if (totalSize - i < chunkSize) (totalSize - i) else chunkSize
+                val data = readSpiFlash(device, i.toLong(), length) ?: return false
+                outputStream.write(data)
+            }
+            true
+        } catch (e: CH341LibException) {
+            false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun writeSpiFlash(device: UsbDevice, address: Long, data: ByteArray): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            // 1. Write Enable (0x06)
+            val weBuf = byteArrayOf(0x06.toByte())
+            val weRecv = ByteArray(1)
+            if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
+
+            // 2. Page Program (0x02)
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            val sendBuf = byteArrayOf(0x02.toByte(), addrHigh, addrMid, addrLow) + data
+            val recvBuf = ByteArray(sendBuf.size)
+            mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun eraseSpiFlash(device: UsbDevice, address: Long): Boolean {
+        if (!handOffToVendor(device)) return false
+        return try {
+            val mgr = CH341Manager.getInstance()
+            mgr.CH34xSetParaMode(device, 0x01)
+
+            // 1. Write Enable (0x06)
+            val weBuf = byteArrayOf(0x06.toByte())
+            val weRecv = ByteArray(1)
+            if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
+
+            // 2. Sector Erase (0x20) - 4KB
+            val addrHigh = ((address shr 16) and 0xFF).toByte()
+            val addrMid = ((address shr 8) and 0xFF).toByte()
+            val addrLow = (address and 0xFF).toByte()
+
+            val sendBuf = byteArrayOf(0x20.toByte(), addrHigh, addrMid, addrLow)
+            val recvBuf = ByteArray(sendBuf.size)
+            mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
+

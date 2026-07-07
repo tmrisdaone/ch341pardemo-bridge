@@ -10,9 +10,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FilePresent
 import androidx.compose.material.icons.rounded.Memory
-import androidx.compose
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,14 +32,35 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cn.wch.ch341pardemo.data.Ch341DeviceInfo
-import java.io.File
+import android.net.Uri
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BiosFlashingScreen() {
     val ctx = LocalContext.current
     val app = ctx.applicationContext as Application
     val vm: BiosFlashingViewModel = viewModel(factory = BiosFlashingViewModel.Factory(app))
     val state by vm.state.collectAsStateWithLifecycle()
+
+    val filePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()) { uris ->
+            uris.firstOrNull()?.let { vm.selectFile(it) }
+        }
+
+
+
+    val backupPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+            uri?.let { vm.onBackupUriSelected(it) }
+        }
+
+
+
+    LaunchedEffect(state.isRequestingBackupUri) {
+        if (state.isRequestingBackupUri) {
+            backupPicker.launch("bios_backup.bin")
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -57,20 +85,56 @@ fun BiosFlashingScreen() {
             DeviceSelectionCard(
                 devices = state.availableDevices,
                 selectedDevice = state.selectedDevice,
-                onSelect = { vm.selectDevice(it) }
+                onSelect = { vm.selectDevice(it) },
+                onRefresh = { vm.refreshDevices() }
             )
 
             // File Selection
             FileSelectionCard(
-                selectedFile = state.selectedFile,
-                onSelect = { /* Implement file picker here */ }
+                selectedFileUri = state.selectedFileUri,
+                onSelect = { filePicker.launch(arrayOf("application/octet-stream")) }
             )
+
+            // Operations Section
+            Text("Operations", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { vm.detectChip() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Detect")
+                }
+                OutlinedButton(
+                    onClick = { vm.readBios() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Build, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Read")
+                }
+                OutlinedButton(
+                    onClick = { vm.backupBios() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Backup")
+                }
+            }
 
             // Flash Action
             Button(
                 onClick = { vm.startFlashing() },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = state.selectedDevice != null && state.selectedFile != null && !state.isFlashing,
+                enabled = state.selectedDevice != null && state.selectedFileUri != null && !state.isFlashing,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (state.isFlashing) {
@@ -118,14 +182,24 @@ fun BiosFlashingScreen() {
 private fun DeviceSelectionCard(
     devices: List<Ch341DeviceInfo>,
     selectedDevice: Ch341DeviceInfo?,
-    onSelect: (Ch341DeviceInfo) -> Unit
+    onSelect: (Ch341DeviceInfo) -> Unit,
+    onRefresh: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Select Device", style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Select Device", style = MaterialTheme.typography.titleSmall)
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = "Refresh devices")
+                }
+            }
             Spacer(Modifier.height(8.dp))
             if (devices.isEmpty()) {
                 Text("No CH341 devices found", style = MaterialTheme.typography.bodySmall)
@@ -154,8 +228,8 @@ private fun DeviceSelectionCard(
 
 @Composable
 private fun FileSelectionCard(
-    selectedFile: File?,
-    onSelect: (File) -> Unit
+    selectedFileUri: Uri?,
+    onSelect: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -170,7 +244,7 @@ private fun FileSelectionCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text("BIOS Firmware File", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    text = selectedFile?.name ?: "No file selected",
+                    text = selectedFileUri?.toString()?.takeLast(30) ?: "No file selected",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
