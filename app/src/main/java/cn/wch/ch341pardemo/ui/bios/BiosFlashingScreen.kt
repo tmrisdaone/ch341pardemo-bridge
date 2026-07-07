@@ -41,15 +41,15 @@ fun BiosFlashingScreen() {
     val vm: BiosFlashingViewModel = viewModel(factory = BiosFlashingViewModel.Factory(app))
     val state by vm.state.collectAsStateWithLifecycle()
 
-    val filePicker = rememberLauncherForActivityResult<Array<String>, List<Uri>>(
-        ActivityResultContracts.OpenDocument(),
+    val filePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument() as ActivityResultContract<Array<String>, List<Uri>>,
         { uris ->
             uris.firstOrNull()?.let { vm.selectFile(it) }
         }
     )
 
-    val backupPicker = rememberLauncherForActivityResult<String, Uri?>(
-        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    val backupPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream") as ActivityResultContract<String, Uri?>,
         { uri ->
             uri?.let { vm.onBackupUriSelected(it) }
         }
