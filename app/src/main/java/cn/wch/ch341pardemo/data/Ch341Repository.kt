@@ -173,6 +173,8 @@ class Ch341Repository(private val context: Context) {
         } catch (e: Exception) {
             false
         }
+    }
+
     fun writeSpiFlash(device: UsbDevice, address: Long, data: ByteArray): Boolean {
         if (!handOffToVendor(device)) return false
         return try {
