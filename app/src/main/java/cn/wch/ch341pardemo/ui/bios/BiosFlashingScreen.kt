@@ -8,22 +8,39 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Chip
 import androidx.compose.material.icons.rounded.FilePresent
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Button
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -42,24 +59,36 @@ fun BiosFlashingScreen() {
     val vm: BiosFlashingViewModel = viewModel(factory = BiosFlashingViewModel.Factory(app))
     val state by vm.state.collectAsStateWithLifecycle()
 
+    val snackbar = remember { SnackbarHostState() }
+
     val filePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let { vm.selectFile(it) }
     }
 
-
+    val readPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { vm.onReadUriSelected(it) }
+    }
 
     val backupPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-            uri?.let { vm.onBackupUriSelected(it) }
-        }
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { vm.onBackupUriSelected(it) }
+    }
 
-
-
+    LaunchedEffect(state.isRequestingReadUri) {
+        if (state.isRequestingReadUri) readPicker.launch("bios_read_sample.bin")
+    }
     LaunchedEffect(state.isRequestingBackupUri) {
-        if (state.isRequestingBackupUri) {
-            backupPicker.launch("bios_backup.bin")
+        if (state.isRequestingBackupUri) backupPicker.launch("bios_backup.bin")
+    }
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let {
+            snackbar.showSnackbar(it)
+            vm.dismissError()
         }
     }
 
@@ -71,7 +100,8 @@ fun BiosFlashingScreen() {
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbar) { Snackbar(it) } }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -82,7 +112,6 @@ fun BiosFlashingScreen() {
         ) {
             Text("Flash Device Firmware", style = MaterialTheme.typography.titleMedium)
 
-            // Device Selection
             DeviceSelectionCard(
                 devices = state.availableDevices,
                 selectedDevice = state.selectedDevice,
@@ -90,52 +119,50 @@ fun BiosFlashingScreen() {
                 onRefresh = { vm.refreshDevices() }
             )
 
-            // File Selection
+            ChipInfoCard(
+                jedecId = state.detectedJedecId,
+                isDetecting = state.isDetecting
+            )
+
             FileSelectionCard(
                 selectedFileUri = state.selectedFileUri,
                 onSelect = { filePicker.launch(arrayOf("application/octet-stream")) }
             )
 
-            // Operations Section
             Text("Operations", style = MaterialTheme.typography.titleSmall)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = { vm.detectChip() },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Detect")
-                }
-                OutlinedButton(
-                    onClick = { vm.readBios() },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Rounded.Build, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Read")
-                }
-                OutlinedButton(
-                    onClick = { vm.backupBios() },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Backup")
-                }
+                OperationButton(
+                    label = "Detect",
+                    icon = Icons.Rounded.Search,
+                    inProgress = state.isDetecting,
+                    enabled = state.selectedDevice != null,
+                    onClick = { vm.detectChip() }
+                )
+                OperationButton(
+                    label = "Read",
+                    icon = Icons.Rounded.Build,
+                    inProgress = state.isReading,
+                    enabled = state.selectedDevice != null,
+                    onClick = { vm.readBios() }
+                )
+                OperationButton(
+                    label = "Backup",
+                    icon = Icons.Rounded.Save,
+                    inProgress = state.isBackingUp,
+                    enabled = state.selectedDevice != null,
+                    onClick = { vm.backupBios() }
+                )
             }
 
-            // Flash Action
             Button(
                 onClick = { vm.startFlashing() },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = state.selectedDevice != null && state.selectedFileUri != null && !state.isFlashing,
+                enabled = state.selectedDevice != null &&
+                          state.selectedFileUri != null &&
+                          !state.isFlashing,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (state.isFlashing) {
@@ -147,13 +174,17 @@ fun BiosFlashingScreen() {
                 }
             }
 
-            // Progress & Logs
-            if (state.isFlashing || state.progress > 0f) {
+            if (state.isFlashing || state.isReading || state.isBackingUp || state.progress > 0f) {
                 LinearProgressIndicator(
                     progress = state.progress,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
                 )
-                Text("${(state.progress * 100).toInt()}% complete", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    "${(state.progress * 100).toInt()}% complete",
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
 
             Box(
@@ -175,6 +206,33 @@ fun BiosFlashingScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OperationButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    inProgress: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled && !inProgress,
+        modifier = Modifier.weight(1f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        if (inProgress) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp
+            )
+        } else {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(label)
         }
     }
 }
@@ -221,6 +279,60 @@ private fun DeviceSelectionCard(
                             color = if (device == selectedDevice) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChipInfoCard(
+    jedecId: String?,
+    isDetecting: Boolean
+) {
+    val hasChip = jedecId != null
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)),
+        color = if (hasChip) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Rounded.Chip,
+                contentDescription = null,
+                tint = if (hasChip) MaterialTheme.colorScheme.onPrimaryContainer
+                       else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "SPI Flash Chip",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (hasChip) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                when {
+                    isDetecting -> Text(
+                        "Probing...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    hasChip -> Text(
+                        "JEDEC ID: $jedecId",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    else -> Text(
+                        "Tap Detect to identify the chip",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
