@@ -32,16 +32,18 @@ class SettingsViewModel(
 ) : AndroidViewModel(application) {
 
     val state: StateFlow<SettingsUiState> = combine(
-        repo.themeMode,
-        repo.bridgeEnabled,
-        repo.terminalBaud,
-        repo.terminalShowTimestamps,
-        repo.terminalHexMode,
-        repo.uartParity,
-        repo.uartStopBits,
-        repo.uartFlowControl,
-        repo.spiClockSpeed,
-        repo.spiMode
+        listOf(
+            repo.themeMode as kotlinx.coroutines.flow.Flow<Any>,
+            repo.bridgeEnabled as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalBaud as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalShowTimestamps as kotlinx.coroutines.flow.Flow<Any>,
+            repo.terminalHexMode as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartParity as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartStopBits as kotlinx.coroutines.flow.Flow<Any>,
+            repo.uartFlowControl as kotlinx.coroutines.flow.Flow<Any>,
+            repo.spiClockSpeed as kotlinx.coroutines.flow.Flow<Any>,
+            repo.spiMode as kotlinx.coroutines.flow.Flow<Any>
+        )
     ) { array ->
         SettingsUiState(
             themeMode = array[0] as AppThemeMode,

@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import kotlin.io.readBytes
 import java.util.logging.Logger
 
 data class BiosFlashingUiState(
