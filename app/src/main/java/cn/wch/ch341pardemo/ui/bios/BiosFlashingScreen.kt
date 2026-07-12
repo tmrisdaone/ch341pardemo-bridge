@@ -43,8 +43,8 @@ fun BiosFlashingScreen() {
     val state by vm.state.collectAsStateWithLifecycle()
 
     val filePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()) { uris ->
-            uris.firstOrNull()?.let { vm.selectFile(it) }
+        ActivityResultContracts.OpenDocument()) { uri ->
+            uri?.let { vm.selectFile(it) }
         }
 
 
