@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import cn.wch.ch341pardemo.data.Ch341DeviceInfo
 import cn.wch.ch341pardemo.ui.theme.StatusConnected
 import cn.wch.ch341pardemo.ui.theme.StatusDisconnected
 import cn.wch.ch341pardemo.ui.theme.StatusError
@@ -75,7 +77,6 @@ fun FlasherScreen() {
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
         if (uri != null) {
-            // Copy content from uri to a temp file for the service
             val tempFile = java.io.File(ctx.cacheDir, "flash_read_${System.currentTimeMillis()}.bin")
             try {
                 ctx.contentResolver.openInputStream(uri)?.use { input ->
@@ -139,7 +140,15 @@ fun FlasherScreen() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Chip info card
+            // ── CH341 Device Status ────────────────────────────────
+            Ch341DeviceCard(
+                device = state.ch341Device,
+                connected = state.ch341Connected,
+                onDetect = { vm.detectCh341Device() },
+                onGrantPermission = { vm.requestCh341Permission() }
+            )
+
+            // ── SPI Flash Chip Info ────────────────────────────────
             ChipInfoCard(
                 chipName = state.chipName,
                 chipSize = state.chipSize,
@@ -147,9 +156,10 @@ fun FlasherScreen() {
                 connectionOk = state.chipName != null
             )
 
-            // Action buttons
+            // ── Action buttons ─────────────────────────────────────
             ActionButtons(
                 isBusy = state.isBusy,
+                ch341Ready = state.ch341Connected,
                 hasChip = state.chipName != null,
                 hasFile = state.selectedFilePath != null,
                 onDetect = { vm.detectChip() },
@@ -159,7 +169,7 @@ fun FlasherScreen() {
                 onVerify = { verifyFileLauncher.launch(arrayOf("*/*")) }
             )
 
-            // Progress
+            // ── Progress ───────────────────────────────────────────
             if (state.isBusy) {
                 Column(
                     modifier = Modifier
@@ -192,7 +202,7 @@ fun FlasherScreen() {
 
             HorizontalDivider()
 
-            // Operation log
+            // ── Log ────────────────────────────────────────────────
             Text(
                 text = "Log",
                 style = MaterialTheme.typography.titleSmall,
@@ -219,6 +229,106 @@ fun FlasherScreen() {
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+    }
+}
+
+// ── CH341 Device Status Card ───────────────────────────────────
+
+@Composable
+private fun Ch341DeviceCard(
+    device: Ch341DeviceInfo?,
+    connected: Boolean,
+    onDetect: () -> Unit,
+    onGrantPermission: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (connected) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Usb,
+                    contentDescription = null,
+                    tint = if (connected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CH341 Adapter",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (device != null && connected) {
+                    Text(
+                        text = "VID %04X · PID %04X · %s".format(
+                            device.vendorId, device.productId,
+                            device.productName ?: "CH341"
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "Connected · Ready",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusConnected
+                    )
+                } else if (device != null && !connected) {
+                    Text(
+                        text = "USB permission required",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StatusError
+                    )
+                } else {
+                    Text(
+                        text = "No CH341 adapter detected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (device != null && !connected) {
+                Button(
+                    onClick = onGrantPermission,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text("Grant")
+                }
+            } else {
+                Button(
+                    onClick = onDetect,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Rounded.Search, contentDescription = null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (device != null) "Re-scan" else "Detect CH341")
                 }
             }
         }
@@ -281,6 +391,7 @@ private fun ChipInfoCard(
 @Composable
 private fun ActionButtons(
     isBusy: Boolean,
+    ch341Ready: Boolean,
     hasChip: Boolean,
     hasFile: Boolean,
     onDetect: () -> Unit,
@@ -295,20 +406,20 @@ private fun ActionButtons(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Row 1: Detect + Read
+        // Row 1: Detect SPI Flash + Read
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(
                 onClick = onDetect,
-                enabled = !isBusy,
+                enabled = !isBusy && ch341Ready,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Rounded.Search, contentDescription = null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Detect")
+                Text("Detect Chip")
             }
             OutlinedButton(
                 onClick = onRead,
