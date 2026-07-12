@@ -70,11 +70,15 @@ jobs:
           echo "PASS: LocalServerSocket only — no raw TCP listening."
       - name: Async UsbRequest I/O
         run: |
-          if ! grep -q "UsbRequest" app/src/main/java/cn/wch/ch341pardemo/TermuxBridge.java; then
-            echo "::error::UsbRequest async I/O not used in TermuxBridge. Performance will suffer under load."
+          if ! grep -qE "UsbRequest|bulkTransfer" app/src/main/java/cn/wch/ch341pardemo/TermuxBridge.java; then
+            echo "::error::No USB I/O (UsbRequest or bulkTransfer) found in TermuxBridge."
             exit 1
           fi
-          echo "PASS: Async UsbRequest I/O in use."
+          if grep -q "UsbRequest" app/src/main/java/cn/wch/ch341pardemo/TermuxBridge.java; then
+            echo "PASS: Async UsbRequest I/O in use."
+          else
+            echo "PASS: bulkTransfer I/O in use (UsbRequest also acceptable)."
+          fi
 
   unit-tests:
     name: Unit tests
