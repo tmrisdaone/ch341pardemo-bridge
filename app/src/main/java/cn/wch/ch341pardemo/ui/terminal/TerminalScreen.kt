@@ -248,6 +248,7 @@ fun TerminalScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DevicePicker(
     devices: List<cn.wch.ch341pardemo.data.Ch341DeviceInfo>,
