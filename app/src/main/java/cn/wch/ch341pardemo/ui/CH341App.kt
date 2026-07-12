@@ -2,10 +2,12 @@ package cn.wch.ch341pardemo.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Settings
@@ -26,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import cn.wch.ch341pardemo.ui.devices.DevicesScreen
+import cn.wch.ch341pardemo.ui.flasher.FlasherScreen
 import cn.wch.ch341pardemo.ui.home.HomeScreen
 import cn.wch.ch341pardemo.ui.settings.SettingsScreen
 import cn.wch.ch341pardemo.ui.terminal.TerminalScreen
@@ -44,6 +47,10 @@ sealed class Destinations(
         "terminal", "Terminal",
         Icons.Outlined.Terminal, Icons.Rounded.Terminal
     )
+    data object Flasher : Destinations(
+        "flasher", "Flasher",
+        Icons.Outlined.Bolt, Icons.Rounded.Bolt
+    )
     data object Devices : Destinations(
         "devices", "Devices",
         Icons.Outlined.Memory, Icons.Rounded.Memory
@@ -54,7 +61,7 @@ sealed class Destinations(
     )
 
     companion object {
-        val all = listOf(Home, Terminal, Devices, Settings)
+        val all = listOf(Home, Terminal, Flasher, Devices, Settings)
     }
 }
 
@@ -103,6 +110,7 @@ fun CH341App() {
                 onOpenSettings = { nav.navigate(Destinations.Settings.route) }
             ) }
             composable(Destinations.Terminal.route) { TerminalScreen() }
+            composable(Destinations.Flasher.route) { FlasherScreen() }
             composable(Destinations.Devices.route) { DevicesScreen() }
             composable(Destinations.Settings.route) { SettingsScreen() }
         }
