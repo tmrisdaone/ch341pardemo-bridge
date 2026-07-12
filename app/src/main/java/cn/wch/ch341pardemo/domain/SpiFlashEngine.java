@@ -45,6 +45,7 @@ public class SpiFlashEngine {
     private FlashChip detectedChip;
     private boolean spiModeInitialized = false;
     private boolean isCh347Device = false; // CH347 has native SPI
+    private boolean engineOpen = false; // guards against double-init
 
     // Constants
     private static final int CTRL_TIMEOUT = 2000;

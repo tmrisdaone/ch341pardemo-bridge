@@ -55,6 +55,10 @@ public class FlasherService extends Service {
     public static final String EXTRA_CHIP_INFO = "chip_info";
     public static final String EXTRA_FILE_PATH = "file_path";
 
+    // CH341A VID/PID
+    private static final int VID_QINHENG = 0x1A86;
+    private static final int[] CH341_PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
+
     private static final String NOTIF_CHANNEL_ID = "flash_ops";
 
     private SpiFlashEngine engine;
