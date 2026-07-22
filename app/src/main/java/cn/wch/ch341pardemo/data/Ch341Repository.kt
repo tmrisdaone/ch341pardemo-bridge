@@ -7,6 +7,7 @@ import cn.wch.ch341lib.CH341Manager
 import cn.wch.ch341lib.exception.CH341LibException
 import cn.wch.ch347lib.exception.NoPermissionException
 import cn.wch.ch347lib.exception.ChipException
+import cn.wch.ch341pardemo.domain.Ch341UsbIds
 
 /**
  * Snapshot of a CH341-compatible USB device.
@@ -20,17 +21,18 @@ data class Ch341DeviceInfo(
     val serialNumber: String?,
     val interfaceCount: Int
 ) {
-    val isCh341: Boolean get() = vendorId == 0x1A86
+    /** True only for the PIDs this app actually knows how to drive. */
+    val isSupportedCh341: Boolean get() =
+        Ch341UsbIds.isSupportedCh341ById(vendorId, productId)
 }
 
+/**
+ * Kept for backwards compatibility with code that builds a Set<Int>. Delegates
+ * to [Ch341UsbIds] so there is a single source of truth for the PID list.
+ */
 object Ch341VidPid {
-    const val VID = 0x1A86
-    // CH341 PIDs that this app knows about
-    val PIDS = setOf(
-        0x7523, 0x5523, 0x7522, 0x5512,
-        0x7584, 0x7585, 0x7586,
-        0xE023, 0xE024, 0xE025   // newer CH341 variants
-    )
+    val VID: Int get() = Ch341UsbIds.VID_QINHENG
+    val PIDS: Set<Int> get() = Ch341UsbIds.SUPPORTED_PIDS
 }
 
 /**
@@ -64,7 +66,7 @@ class Ch341Repository(private val context: Context) {
     }
 
     fun listCh341Devices(): List<Ch341DeviceInfo> =
-        listDevices().filter { it.isCh341 && it.productId in Ch341VidPid.PIDS }
+        listDevices().filter { it.isSupportedCh341 }
 
     fun getDevice(deviceId: Int): UsbDevice? =
         usbManager.deviceList?.values?.firstOrNull { it.deviceId == deviceId }
@@ -127,6 +129,7 @@ class Ch341Repository(private val context: Context) {
 
     /**
      * Reads a block of data from the SPI flash.
+     * Supports 4-byte addressing for chips >16MiB.
      */
     fun readSpiFlash(device: UsbDevice, address: Long, length: Int): ByteArray? {
         if (!handOffToVendor(device)) return null
@@ -134,19 +137,37 @@ class Ch341Repository(private val context: Context) {
             val mgr = CH341Manager.getInstance()
             mgr.CH34xSetParaMode(device, 0x01)
 
-            val addrHigh = ((address shr 16) and 0xFF).toByte()
-            val addrMid = ((address shr 8) and 0xFF).toByte()
-            val addrLow = (address and 0xFF).toByte()
+            // Enter 4-byte address mode if address >= 16MiB
+            if (address >= 0x1000000) {
+                val en4b = byteArrayOf(0xB7.toByte())
+                val en4bRecv = ByteArray(1)
+                mgr.CH34xStreamSPI5(device, 0, 0, en4b, en4bRecv)
+            }
 
-            // Send command [0x03, addrH, addrM, addrL] followed by dummy bytes to clock out data
-            val sendBuf = byteArrayOf(0x03.toByte(), addrHigh, addrMid, addrLow) + ByteArray(length) { 0 }
+            val use4Byte = address >= 0x1000000
+            val sendBuf: ByteArray
+            if (use4Byte) {
+                val addrBytes = ByteArray(5)
+                addrBytes[0] = 0x03.toByte() // READ command
+                addrBytes[1] = ((address shr 24) and 0xFF).toByte()
+                addrBytes[2] = ((address shr 16) and 0xFF).toByte()
+                addrBytes[3] = ((address shr 8) and 0xFF).toByte()
+                addrBytes[4] = (address and 0xFF).toByte()
+                sendBuf = addrBytes + ByteArray(length) { 0 }
+            } else {
+                val addrHigh = ((address shr 16) and 0xFF).toByte()
+                val addrMid = ((address shr 8) and 0xFF).toByte()
+                val addrLow = (address and 0xFF).toByte()
+                sendBuf = byteArrayOf(0x03.toByte(), addrHigh, addrMid, addrLow) + ByteArray(length) { 0 }
+            }
+
             val recvBuf = ByteArray(sendBuf.size)
             val success = mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
 
-            if (!success || recvBuf.size < 4) return null
+            if (!success || recvBuf.size < sendBuf.size) return null
 
-            // The first 4 bytes of the response are received while sending the command
-            recvBuf.copyOfRange(4, recvBuf.size)
+            // The first N bytes of the response are received while sending the command
+            recvBuf.copyOfRange(sendBuf.size - length, recvBuf.size)
         } catch (e: CH341LibException) {
             null
         } catch (e: Exception) {
@@ -156,14 +177,19 @@ class Ch341Repository(private val context: Context) {
 
     /**
      * Backs up the entire flash to the provided output stream.
+     * Attempts to detect chip size via RDID; falls back to 16MiB.
      */
     fun backupFullFlash(device: UsbDevice, outputStream: java.io.OutputStream): Boolean {
         if (!handOffToVendor(device)) return false
         return try {
-            val totalSize = 16 * 1024 * 1024 // 16MB default
+            val chipId = detectSpiChip(device)
+            val totalSize = when (chipId) {
+                null -> 16 * 1024 * 1024 // fallback
+                else -> parseChipSize(chipId)
+            }
             val chunkSize = 4096
             for (i in 0 until totalSize step chunkSize) {
-                val length = if (totalSize - i < chunkSize) (totalSize - i) else chunkSize
+                val length = minOf(chunkSize, totalSize - i)
                 val data = readSpiFlash(device, i.toLong(), length) ?: return false
                 outputStream.write(data)
             }
@@ -175,11 +201,35 @@ class Ch341Repository(private val context: Context) {
         }
     }
 
+    private fun parseChipSize(chipId: String): Int {
+        // chipId format: "MFxxxx" where xxxx is device ID
+        // Extract device ID bytes and match against known sizes
+        val devId = chipId.substring(2).toIntOrNull(16) ?: return 16 * 1024 * 1024
+        return when (devId) {
+            0x13 -> 1 * 1024 * 1024    // 8 Mbit
+            0x14 -> 2 * 1024 * 1024    // 16 Mbit
+            0x15 -> 4 * 1024 * 1024    // 32 Mbit
+            0x16 -> 8 * 1024 * 1024    // 64 Mbit
+            0x17 -> 16 * 1024 * 1024   // 128 Mbit
+            0x18 -> 32 * 1024 * 1024   // 256 Mbit
+            0x19 -> 64 * 1024 * 1024   // 512 Mbit
+            else -> 16 * 1024 * 1024
+        }
+    }
+
     fun writeSpiFlash(device: UsbDevice, address: Long, data: ByteArray): Boolean {
         if (!handOffToVendor(device)) return false
         return try {
             val mgr = CH341Manager.getInstance()
             mgr.CH34xSetParaMode(device, 0x01)
+
+            // Enter 4-byte address mode if address >= 16MiB
+            val use4Byte = address >= 0x1000000
+            if (use4Byte) {
+                val en4b = byteArrayOf(0xB7.toByte())
+                val en4bRecv = ByteArray(1)
+                mgr.CH34xStreamSPI5(device, 0, 0, en4b, en4bRecv)
+            }
 
             // 1. Write Enable (0x06)
             val weBuf = byteArrayOf(0x06.toByte())
@@ -187,11 +237,21 @@ class Ch341Repository(private val context: Context) {
             if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
 
             // 2. Page Program (0x02)
-            val addrHigh = ((address shr 16) and 0xFF).toByte()
-            val addrMid = ((address shr 8) and 0xFF).toByte()
-            val addrLow = (address and 0xFF).toByte()
-
-            val sendBuf = byteArrayOf(0x02.toByte(), addrHigh, addrMid, addrLow) + data
+            val sendBuf: ByteArray
+            if (use4Byte) {
+                val addrBytes = ByteArray(5)
+                addrBytes[0] = 0x02.toByte() // PP command
+                addrBytes[1] = ((address shr 24) and 0xFF).toByte()
+                addrBytes[2] = ((address shr 16) and 0xFF).toByte()
+                addrBytes[3] = ((address shr 8) and 0xFF).toByte()
+                addrBytes[4] = (address and 0xFF).toByte()
+                sendBuf = addrBytes + data
+            } else {
+                val addrHigh = ((address shr 16) and 0xFF).toByte()
+                val addrMid = ((address shr 8) and 0xFF).toByte()
+                val addrLow = (address and 0xFF).toByte()
+                sendBuf = byteArrayOf(0x02.toByte(), addrHigh, addrMid, addrLow) + data
+            }
             val recvBuf = ByteArray(sendBuf.size)
             mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
             true
@@ -206,17 +266,35 @@ class Ch341Repository(private val context: Context) {
             val mgr = CH341Manager.getInstance()
             mgr.CH34xSetParaMode(device, 0x01)
 
+            // Enter 4-byte address mode if address >= 16MiB
+            val use4Byte = address >= 0x1000000
+            if (use4Byte) {
+                val en4b = byteArrayOf(0xB7.toByte())
+                val en4bRecv = ByteArray(1)
+                mgr.CH34xStreamSPI5(device, 0, 0, en4b, en4bRecv)
+            }
+
             // 1. Write Enable (0x06)
             val weBuf = byteArrayOf(0x06.toByte())
             val weRecv = ByteArray(1)
             if (!mgr.CH34xStreamSPI5(device, 0, 0, weBuf, weRecv)) return false
 
             // 2. Sector Erase (0x20) - 4KB
-            val addrHigh = ((address shr 16) and 0xFF).toByte()
-            val addrMid = ((address shr 8) and 0xFF).toByte()
-            val addrLow = (address and 0xFF).toByte()
-
-            val sendBuf = byteArrayOf(0x20.toByte(), addrHigh, addrMid, addrLow)
+            val sendBuf: ByteArray
+            if (use4Byte) {
+                val addrBytes = ByteArray(5)
+                addrBytes[0] = 0x20.toByte() // SE command
+                addrBytes[1] = ((address shr 24) and 0xFF).toByte()
+                addrBytes[2] = ((address shr 16) and 0xFF).toByte()
+                addrBytes[3] = ((address shr 8) and 0xFF).toByte()
+                addrBytes[4] = (address and 0xFF).toByte()
+                sendBuf = addrBytes
+            } else {
+                val addrHigh = ((address shr 16) and 0xFF).toByte()
+                val addrMid = ((address shr 8) and 0xFF).toByte()
+                val addrLow = (address and 0xFF).toByte()
+                sendBuf = byteArrayOf(0x20.toByte(), addrHigh, addrMid, addrLow)
+            }
             val recvBuf = ByteArray(sendBuf.size)
             mgr.CH34xStreamSPI5(device, 0, 0, sendBuf, recvBuf)
             true

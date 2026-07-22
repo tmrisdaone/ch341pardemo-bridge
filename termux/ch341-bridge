@@ -57,24 +57,32 @@ fi
 
 # Fallback: use a small Python AF_UNIX proxy via stdin/stdout.
 # termux doesn't ship socat by default; rely on Python 3.
+#
+# IMPORTANT: stdin/stdout are the *payload* (the bytes we forward to and from
+# the chip), so we cannot pipe the Python source itself to `python3 -` — that
+# would consume the script source as USB data. Instead we write the proxy to a
+# temp file and exec `python3 <tmpfile> <socket>`, leaving fd 0/1 untouched.
 if ! command -v python3 >/dev/null; then
   echo "[!] Install socat or python3 first." >&2
   exit 1
 fi
 
-CH341_BRIDGE_DEBUG="${CH341_BRIDGE_DEBUG:-0}"
-DEBUG_FLAG=""
-[[ "$CH341_BRIDGE_DEBUG" == "1" ]] && DEBUG_FLAG="--debug"
-
-exec python3 "$DEBUG_FLAG" - "$SOCKET_PATH" <<'PY'
+SCRIPT_FILE="$(mktemp -t ch341-bridge.XXXXXX.py)"
+trap 'rm -f "$SCRIPT_FILE"' EXIT
+cat > "$SCRIPT_FILE" <<'PY'
 import os, socket, sys, threading
 
-sock_path = sys.argv[1]
+sock_path = sys.argv[1] if len(sys.argv) > 1 else None
 debug = os.environ.get("CH341_BRIDGE_DEBUG") == "1"
 
 def log(msg):
     if debug:
         sys.stderr.write(f"[bridge] {msg}\n")
+        sys.stderr.flush()
+
+if not sock_path:
+    sys.stderr.write("[!] no socket path given\n")
+    sys.exit(2)
 
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 try:
@@ -112,3 +120,5 @@ t1.start(); t2.start()
 t1.join(); t2.join()
 s.close()
 PY
+
+exec python3 "$SCRIPT_FILE" "$SOCKET_PATH"

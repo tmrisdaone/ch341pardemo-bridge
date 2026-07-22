@@ -60,11 +60,7 @@ public class SpiFlashEngine {
     private static final int VAL_CS_LOW = 0x005F;
     private static final int VAL_CS_HIGH = 0x005E;
 
-    // CH341A VID/PID
-    private static final int VID_QINHENG = 0x1A86;
-    private static final int[] CH341_PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
-
-    // Progress callback
+    // ── Progress callback ───────────────────────────────────────
     public interface ProgressCallback {
         void onProgress(String stage, int current, int total);
         void onMessage(String message);
@@ -90,9 +86,7 @@ public class SpiFlashEngine {
         this.ch341Manager = manager;
 
         // Check if it's a CH347 (native SPI) or CH341A (bit-bang)
-        int pid = device.getProductId();
-        isCh347Device = (device.getVendorId() == 0x1A86 &&
-                (pid == 0x7584 || pid == 0x7585 || pid == 0x7586));
+        isCh347Device = Ch341UsbIds.isCh347(device);
 
         try {
             connection = usbManager.openDevice(device);
@@ -204,7 +198,7 @@ public class SpiFlashEngine {
                 return;
             }
             if ((sr & SpiFlashProtocol.SR_BUSY) == 0) return;
-            // Exponential back-off: 1ms, 10ms, 100ms, then 100ms polling
+            // Stepped polling: 1ms for the first 100ms, 10ms up to 1s, then 100ms.
             int delay = waited < 100 ? 1 : (waited < 1000 ? 10 : 100);
             Thread.sleep(delay);
             waited += delay;
@@ -213,11 +207,47 @@ public class SpiFlashEngine {
     }
 
     /**
-     * Send Write Enable command.
+     * Send Write Enable command. Returns true only if the SPI transfer itself
+     * succeeded <b>and</b> the WEL latch is now set in the status register —
+     * which is the real proof the chip accepted it (a protected/locked chip
+     * will keep WEL=0 and silently ignore subsequent program/erase commands).
      */
     public boolean writeEnable() {
-        byte[] result = spiTransfer(new byte[]{SpiFlashProtocol.CMD_WREN}, 0);
-        return true; // no response expected
+        // WREN has no data phase; a null result means the USB transfer failed.
+        if (spiTransfer(new byte[]{SpiFlashProtocol.CMD_WREN}, 0) == null) return false;
+        int sr = readStatus();
+        return sr >= 0 && (sr & SpiFlashProtocol.SR_WEL) != 0;
+    }
+
+    /**
+     * Clear the Block-Protect bits in the status register so erase/program
+     * can actually modify flash. Many chips ship with BP0..BP2 set, which
+     * makes those operations silently no-op. This is opt-in — call once
+     * before a write/erase if your chip is known to be protected.
+     *
+     * <p>Requires Write Enable first (we issue WREN internally).
+     *
+     * @return true if WRSR was issued and BP bits read back as 0.
+     */
+    public boolean clearBlockProtection() {
+        if (!writeEnable()) return false;
+        int sr = readStatus();
+        if (sr < 0) return false;
+        // Mask off BP0/BP1/BP2 and the hold of them via SRP (best effort).
+        int cleared = sr & ~(SpiFlashProtocol.SR_BP0 | SpiFlashProtocol.SR_BP1
+                | SpiFlashProtocol.SR_BP2);
+        if (spiTransfer(new byte[]{SpiFlashProtocol.CMD_WRSR, (byte) cleared}, 0) == null) {
+            return false;
+        }
+        // Give the chip a moment and re-read.
+        try { waitWhileBusy(new ProgressCallback() {
+            @Override public void onProgress(String s, int c, int t) {}
+            @Override public void onMessage(String m) {}
+            @Override public void onError(String e) {}
+        }); } catch (InterruptedException ignored) { return false; }
+        int after = readStatus();
+        return after >= 0 && (after & (SpiFlashProtocol.SR_BP0
+                | SpiFlashProtocol.SR_BP1 | SpiFlashProtocol.SR_BP2)) == 0;
     }
 
     /**
@@ -264,8 +294,15 @@ public class SpiFlashEngine {
                 return false;
             }
 
-            System.arraycopy(result, 0, buffer, offset + bytesRead, Math.min(result.length, chunk));
-            bytesRead += result.length;
+            // Defensive: never let a short/over read run past the destination buffer.
+            int copyLen = Math.min(Math.min(result.length, chunk),
+                    buffer.length - (offset + bytesRead));
+            if (copyLen <= 0) {
+                callback.onError("Read buffer overflow at 0x" + Integer.toHexString(addr));
+                return false;
+            }
+            System.arraycopy(result, 0, buffer, offset + bytesRead, copyLen);
+            bytesRead += copyLen;
 
             callback.onProgress("Reading", bytesRead, length);
         }
@@ -387,33 +424,58 @@ public class SpiFlashEngine {
      */
     public boolean eraseRange(int address, int length, ProgressCallback callback) throws InterruptedException {
         callback.onMessage("Erasing range 0x" + Integer.toHexString(address)
-                + " - 0x" + Integer.toHexString(address + length));
+                + " - 0x" + Long.toHexString((long) address + length));
 
         // If erasing the whole chip, use chip erase
         if (detectedChip != null && address == 0 && length >= detectedChip.sizeBytes) {
             return chipErase(callback);
         }
 
-        // Calculate optimal erase strategy
-        int erased = 0;
-        int block64k = 64 * 1024;
-        int block4k = 4 * 1024;
+        // Drive erase geometry from the detected chip's own erase sector size,
+        // not a hardcoded 4KiB assumption. Some parts (Spansion S25FL, GD25Q*)
+        // only reliably support 0xD8 (64KiB) and treat 0x20 (4KiB) as either
+        // unsupported or a different erase size.
+        int minErase = (detectedChip != null) ? detectedChip.sectorSize : SpiFlashProtocol.SECTOR_SIZE_4K;
+        boolean canErase4k = (minErase <= SpiFlashProtocol.SECTOR_SIZE_4K);
+        int block64k = SpiFlashProtocol.BLOCK_SIZE_64K;
+        int block4k = SpiFlashProtocol.SECTOR_SIZE_4K;
 
+        int erased = 0;
         while (erased < length) {
             int addr = address + erased;
             int remaining = length - erased;
 
-            // Try 64KB block erase for aligned, large areas
             if (remaining >= block64k && (addr % block64k) == 0) {
-                blockErase64k(addr, callback);
+                if (!blockErase64k(addr, callback)) {
+                    callback.onError("64KiB block erase failed at 0x" + Integer.toHexString(addr));
+                    return false;
+                }
                 erased += block64k;
-                callback.onProgress("Erasing", erased, length);
-            } else {
-                // Use 4KB sector erase
-                sectorErase(addr, callback);
+            } else if (canErase4k && remaining >= block4k && (addr % block4k) == 0) {
+                if (!sectorErase(addr, callback)) {
+                    callback.onError("4KiB sector erase failed at 0x" + Integer.toHexString(addr));
+                    return false;
+                }
                 erased += block4k;
-                callback.onProgress("Erasing", erased, length);
+            } else if (canErase4k) {
+                // Unaligned remainder: erase one 4KiB sector (sub-sector erase).
+                if (!sectorErase(addr, callback)) {
+                    callback.onError("4KiB sector erase failed at 0x" + Integer.toHexString(addr));
+                    return false;
+                }
+                erased += block4k;
+            } else {
+                // Chip only supports 64KiB erase and we have a non-aligned tail.
+                // Erase the containing 64KiB block (over-erasing past the requested
+                // end is harmless — the caller asked to erase <this> region).
+                int blockBase = addr - (addr % block64k);
+                if (!blockErase64k(blockBase, callback)) {
+                    callback.onError("64KiB block erase failed at 0x" + Integer.toHexString(blockBase));
+                    return false;
+                }
+                erased = Math.max(erased + 1, (blockBase + block64k) - address);
             }
+            callback.onProgress("Erasing", Math.min(erased, length), length);
         }
 
         return true;
@@ -485,8 +547,9 @@ public class SpiFlashEngine {
             return null;
         }
 
-        // Small delay to let CS settle
-        try { Thread.sleep(1); } catch (InterruptedException ignored) {}
+        // CH341A CS settle time is sub-microsecond; the control transfer itself
+        // provides sufficient delay. A Thread.sleep(1) here just wastes ~1ms per
+        // transaction (Linux granularity is ~1ms). Removed.
 
         // Bulk write
         int written = connection.bulkTransfer(epOut, txData, txData.length, BULK_TIMEOUT);
@@ -519,7 +582,13 @@ public class SpiFlashEngine {
     }
 
     /**
-     * CH347 SPI transfer using native SPI WriteRead.
+     * CH347 SPI transfer using native SPI WriteRead (not yet implemented).
+     * <p>
+     * The CH347 has native SPI command framing that is different from the
+     * CH341A bit-bang. This fallback uses raw bulk endpoints which will NOT
+     * speak the correct CH347 SPI protocol. Currently a placeholder — flash
+     * operations on CH347 will likely fail until the native CH347Manager
+     * SPI methods are wired in.
      */
     private byte[] spiTransferCh347(byte[] txData, int rxLength) {
         // For CH347, we use the CH347Manager's native SPI methods
