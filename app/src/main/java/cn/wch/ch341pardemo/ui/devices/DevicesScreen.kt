@@ -150,7 +150,7 @@ fun DevicesScreen() {
                     items(list, key = { it.deviceId }) { d ->
                         DeviceListCard(
                             d = d,
-                            isCh341 = d.isCh341,
+                            isCh341 = d.isSupportedCh341,
                             hasPermission = state.hasPermission.contains(d.deviceId),
                             pending = state.pendingPermissionFor == d.deviceId,
                             onRequestPermission = { vm.requestPermission(d) }
