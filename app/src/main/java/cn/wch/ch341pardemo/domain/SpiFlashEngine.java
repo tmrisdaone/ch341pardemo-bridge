@@ -653,6 +653,11 @@ public class SpiFlashEngine {
         connection.controlTransfer(0x40, 0xA1, 0x0000, 0x0000, null, 0, CTRL_TIMEOUT);
         sleep(10);
 
+        // Enter SPI mode (equivalent to CH34xSetParaMode(device, 0x01))
+        // bmRequestType=0x40 (vendor, host-to-device), bRequest=0xA1, wValue=0x0001
+        connection.controlTransfer(0x40, 0xA1, 0x0001, 0x0000, null, 0, CTRL_TIMEOUT);
+        sleep(10);
+
         Log.i(TAG, "CH341A SPI init complete");
     }
 
