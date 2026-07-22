@@ -142,13 +142,14 @@ public final class SpiFlashProtocol {
         addChip(0x01, 0x18, 1 << 22, "S25FL256S",  "256MBit / 32MB");
 
         // ── Intel (0x89) ────────────────────────────────────────
-        addChip(0x89, 0x89, 1 << 21, "QDIV/69F",  "128MBit / 16MB (Intel/Numonyx)");
+        // Intel/Numonyx (0x89) - placeholder entry, likely incorrect MFR ID.
+        // Real N25Q parts use MFR=0x20. Verify RDID on your hardware.
+        addChip(0x89, 0x89, 1 << 21, "QDIV/69F", "128MBit / 16MB (Intel/Numonyx - UNVERIFIED)");
     }
 
     private static void addChip(int mfrId, int devId, int sizeBytes, String name, String desc) {
         int sectorSize = sizeBytes >= (1 << 21) ? BLOCK_SIZE_64K : SECTOR_SIZE_4K;
         FlashChip chip = new FlashChip(mfrId, devId, sizeBytes, sectorSize, name, desc);
-        int composite = (mfrId << 8) | devId;
         java.util.HashMap<Integer, FlashChip> mfrMap = CHIP_DB.get(mfrId);
         if (mfrMap == null) {
             mfrMap = new java.util.HashMap<>();

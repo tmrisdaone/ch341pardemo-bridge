@@ -25,6 +25,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import cn.wch.ch341pardemo.domain.Ch341UsbIds;
+
 /**
  * Foreground service that bridges CH341A USB devices to Termux via a local Unix socket.
  *
@@ -43,14 +45,12 @@ public class TermuxBridge extends Service {
     private static final String LOCAL_SOCKET_NAME = "ch341_bridge";
     private static final String ACTION_USB_PERMISSION = "cn.wch.ch341pardemo.USB_PERMISSION";
 
-    private static final int VID = 0x1A86;
-    private static final int[] PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
-
     public static final String ACTION_START = "cn.wch.TermuxBridge.START";
     public static final String ACTION_STOP = "cn.wch.TermuxBridge.STOP";
 
     private android.net.LocalServerSocket localServer;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final Object usbLock = new Object();
 
     private UsbDevice device;
     private UsbDeviceConnection conn;
@@ -58,7 +58,7 @@ public class TermuxBridge extends Service {
     private UsbEndpoint epIn, epOut;
     private UsbManager usbManager;
 
-    private final ExecutorService ioPool = Executors.newCachedThreadPool();
+    private final ExecutorService ioPool = Executors.newFixedThreadPool(4);
 
     @Override
     public void onCreate() {
@@ -76,7 +76,8 @@ public class TermuxBridge extends Service {
             return START_NOT_STICKY;
         }
 
-        // ACTION_START or default
+        // ACTION_START or default - startForeground FIRST (Android 14+ requires
+        // startForeground() within ~10s of startForegroundService())
         startForegroundIfNeeded();
         startBridge();
         return START_STICKY;
@@ -120,6 +121,8 @@ public class TermuxBridge extends Service {
                 openUsb(d);
             } else {
                 requestPermission(d);
+                running.set(true); // Keep service alive waiting for permission
+                updateNotification("Waiting for USB permission...");
             }
         } else {
             Log.i(TAG, "No CH341 device found, waiting for plug-in");
@@ -290,16 +293,21 @@ public class TermuxBridge extends Service {
         public void run() {
             Log.d(TAG, "Client connected");
             try {
-                // Welcome banner
-                if (device != null) {
-                    String welcome = String.format(
-                            "CH341 TERMUX BRIDGE\nVID:PID %s\nENDPOINTS OUT:0x%02X IN:0x%02X\nREADY\n",
-                            getDeviceName(device),
-                            epOut != null ? epOut.getAddress() : -1,
-                            epIn != null ? epIn.getAddress() : -1);
-                    socket.getOutputStream().write(welcome.getBytes());
-                    socket.getOutputStream().flush();
+                // Welcome banner - snapshot under lock
+                String welcome;
+                synchronized (usbLock) {
+                    if (device != null) {
+                        welcome = String.format(
+                                "CH341 TERMUX BRIDGE\nVID:PID %s\nENDPOINTS OUT:0x%02X IN:0x%02X\nREADY\n",
+                                getDeviceName(device),
+                                epOut != null ? epOut.getAddress() : -1,
+                                epIn != null ? epIn.getAddress() : -1);
+                    } else {
+                        welcome = "CH341 TERMUX BRIDGE\nNO DEVICE CONNECTED\nREADY\n";
+                    }
                 }
+                socket.getOutputStream().write(welcome.getBytes());
+                socket.getOutputStream().flush();
 
                 // Client → USB (daemon thread)
                 Thread writer = new Thread(() -> {
@@ -308,8 +316,16 @@ public class TermuxBridge extends Service {
                         int n;
                         while (running.get() && !socket.isClosed()
                                 && (n = socket.getInputStream().read(buf)) != -1) {
-                            if (n > 0 && conn != null && epOut != null) {
-                                conn.bulkTransfer(epOut, buf, n, 5000);
+                            if (n > 0) {
+                                UsbDeviceConnection c;
+                                UsbEndpoint ep;
+                                synchronized (usbLock) {
+                                    c = conn;
+                                    ep = epOut;
+                                }
+                                if (c != null && ep != null) {
+                                    c.bulkTransfer(ep, buf, n, 5000);
+                                }
                             }
                         }
                     } catch (IOException e) {
@@ -321,8 +337,15 @@ public class TermuxBridge extends Service {
 
                 // USB → Client (main loop)
                 byte[] readBuf = new byte[4096];
-                while (running.get() && !socket.isClosed() && conn != null && epIn != null) {
-                    int n = conn.bulkTransfer(epIn, readBuf, readBuf.length, 1000);
+                while (running.get() && !socket.isClosed()) {
+                    UsbDeviceConnection c;
+                    UsbEndpoint ep;
+                    synchronized (usbLock) {
+                        c = conn;
+                        ep = epIn;
+                    }
+                    if (c == null || ep == null) break;
+                    int n = c.bulkTransfer(ep, readBuf, readBuf.length, 1000);
                     if (n > 0) {
                         socket.getOutputStream().write(readBuf, 0, n);
                         socket.getOutputStream().flush();
@@ -351,11 +374,7 @@ public class TermuxBridge extends Service {
     }
 
     private boolean isCh341Device(UsbDevice d) {
-        if (d.getVendorId() != VID) return false;
-        for (int pid : PIDS) {
-            if (d.getProductId() == pid) return true;
-        }
-        return true; // Accept any QinHeng device if PID not in list
+        return Ch341UsbIds.isSupportedCh341(d);
     }
 
     private static String getDeviceName(UsbDevice d) {
@@ -378,7 +397,14 @@ public class TermuxBridge extends Service {
             ((android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE))
                     .createNotificationChannel(ch);
         }
-        updateNotification("Waiting for USB device...");
+        // MUST call startForeground() now - Android 14 dataSync foreground type
+        // gives us ~10 seconds. Do it BEFORE any USB I/O.
+        startForeground(1, new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("CH341A to Termux")
+                .setContentText("Waiting for USB device...")
+                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                .setOngoing(true)
+                .build());
     }
 
     private void updateNotification(String text) {

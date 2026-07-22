@@ -19,6 +19,7 @@ import androidx.core.app.NotificationCompat;
 import cn.wch.ch341lib.CH341Manager;
 import cn.wch.ch341pardemo.data.HexUtil;
 import cn.wch.ch341pardemo.domain.SpiFlashProtocol.FlashChip;
+import cn.wch.ch341pardemo.domain.Ch341UsbIds;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -55,9 +56,6 @@ public class FlasherService extends Service {
     public static final String EXTRA_CHIP_INFO = "chip_info";
     public static final String EXTRA_FILE_PATH = "file_path";
 
-    // CH341A VID/PID
-    private static final int VID_QINHENG = 0x1A86;
-    private static final int[] CH341_PIDS = {0x7523, 0x5523, 0x7522, 0x5512, 0x7584, 0x7585, 0x7586};
 
     private static final String NOTIF_CHANNEL_ID = "flash_ops";
 
@@ -80,6 +78,8 @@ public class FlasherService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) return START_NOT_STICKY;
 
+        // MUST call startForeground() first (Android 14 dataSync type)
+        // before any potentially-blocking USB I/O in engine.init()
         showNotification("Starting...");
 
         String action = intent.getAction();
@@ -381,11 +381,7 @@ public class FlasherService extends Service {
     }
 
     private boolean isCh341Device(UsbDevice d) {
-        if (d.getVendorId() != VID_QINHENG) return false;
-        for (int pid : CH341_PIDS) {
-            if (d.getProductId() == pid) return true;
-        }
-        return true; // Accept any QinHeng device
+        return Ch341UsbIds.isSupportedCh341(d);
     }
 
     private void showNotification(String text) {
