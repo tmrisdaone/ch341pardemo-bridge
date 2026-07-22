@@ -424,7 +424,7 @@ public class SpiFlashEngine {
      */
     public boolean eraseRange(int address, int length, ProgressCallback callback) throws InterruptedException {
         callback.onMessage("Erasing range 0x" + Integer.toHexString(address)
-                + " - 0x" + Integer.toHexString((long) address + length));
+                + " - 0x" + Long.toHexString((long) address + length));
 
         // If erasing the whole chip, use chip erase
         if (detectedChip != null && address == 0 && length >= detectedChip.sizeBytes) {
